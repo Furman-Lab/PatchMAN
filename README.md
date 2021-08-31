@@ -1,4 +1,4 @@
-# PatchMAN protocol for blind peptide-protein docking
+## PatchMAN protocol for blind peptide-protein docking
 
 ### Description
 
