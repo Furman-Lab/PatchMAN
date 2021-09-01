@@ -32,10 +32,10 @@ def define_motifs(pose, pdb_name):
     all_motifs_list = []
     num = 1
     for i,res in enumerate(selected_res, 1):
-        if i <=2:  # skip first 2 res
+        if i <=2:  # skip first 2 res (too small, overlapping patches)
             continue
         if res:
-            if i in motifs_created: # skip every second patch
+            if i in motifs_created: # skip every second patch (to prevent too overlapping patches)
                 continue
             focus = utils.create_index_selector([i])
             neighborhood_selector.set_focus(focus.apply(pose))
@@ -116,9 +116,10 @@ def is_helix(stretch, s):
 
 def main():
 
-    inpdb = sys.argv[1]
+    inpdb = sys.argv[1] # CLEAN_PDB
+    toolbox.cleaning.cleanATOM(inpdb)
     prot_name = os.path.splitext(os.path.basename(inpdb))[0]
-    pose = pose_from_pdb(inpdb)
+    pose = pose_from_pdb(prot_name+'.clean.pdb')
     motifs = define_motifs(pose,prot_name)
     print("The surface was split into " + str(len(motifs)) + " patches")
 

@@ -74,7 +74,7 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
 
         try:
             env_res, env_res_with_chain, tot_res, pdb_pose = res_around_patch(indices, pdb_pose)
-        except RuntimeError:  # why?
+        except RuntimeError:
             continue
 
         # filter short stretches
