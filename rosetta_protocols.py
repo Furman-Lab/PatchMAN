@@ -92,8 +92,6 @@ def fixbb_design(lig_selection, filename, pepseq, scrfxn):
 
     os.remove(filename + '_resfile')
 
-    # core.pack.pack_rotamers(complex_pose, scrfxn, packer_task)
-
 
 def run_fpd(models, receptor_name, native):
 

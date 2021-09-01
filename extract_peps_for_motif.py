@@ -191,7 +191,6 @@ def superimpose_using_RT(t, R, pdb_pose):
     t_rosetta = numeric.xyzVector_double_t(t[0], t[1], t[2])
 
     new_pose.apply_transform_Rx_plus_v(R_rosetta, t_rosetta)
-    # new_pose.dump_pdb('tmp7.pdb')
 
     return new_pose
 
@@ -251,7 +250,7 @@ def choose_stretches_only(env_res, chain_breaks, peplen, tot_res):
         elif len(stretch) >= peplen: # the stretch is long enough
             stretches.append(stretch)
             stretch = [env_res[i + 1]]
-        # check if the res are sequential and that they are belong to the same chain
+        # check if the res are sequential and that they belong to the same chain
         elif int(res) + 1 == int(env_res[i + 1]) \
                 and int(res) + 1 not in chain_breaks:
             stretch.append(env_res[i + 1])
@@ -270,7 +269,7 @@ def elongate_stretch(stretch, peplen, tot_res, chain_breaks):
     new_stretch = []
     stretches = []
 
-    first_res = int(stretch[0]) - dif  # from which we CAN start??
+    first_res = int(stretch[0]) - dif  # from which we can start??
     while first_res <= 0:
         first_res += 1
         if first_res == int(stretch[0]):

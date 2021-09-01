@@ -43,7 +43,7 @@ def find_relevant_chains(prot_complex_file, clash_dist, interaction_dist):
 
     pep_template = prot_data[prot_data.chain_name == 'B'].copy()
     # assert pep_template.chain_name.nunique() == 1, '{}, {}: More than 1 chain_name in template" {}'.format(
-    #     prot_complex_file, receptor_chain, pep_template.chain_name.unique()) # why would it be even possible?
+    #     prot_complex_file, receptor_chain, pep_template.chain_name.unique()) # shouldn't happen. checking earlier
 
     all_names = prot_data.atom_full_name.unique()
     h_names = [name for name in all_names if 'H' in name and name != 'OH'] # all the hydrogens
