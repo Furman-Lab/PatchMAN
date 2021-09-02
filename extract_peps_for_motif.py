@@ -90,18 +90,21 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
 
             if complex_pose:
 
-                if not design:
-                    if thread_pepseq(complex_name, complex_pose, pepseq, scrfxn):
-                        single_motif_complexes += 1
-
-                    system('rm -f {}'.format(complex_name))
-
                 pep_template_seq = complex_pose.chain_sequence(2)
                 motif_seq, patch_seq = compare_motif_seq_id(patch_pose, pdb_pose, indices)
                 complex_inf = print_inf(complex_name, match_to_report, motif_seq, patch_name, patch_seq,
                                         pep_template_seq, pepseq, stretch,rmsd)  # print the information about the motif and patch + alignments of the motifs and peps
                 with open(log_name, 'a') as log:
                     log.write(complex_inf)
+
+                if not design:
+                    if thread_pepseq(complex_name, complex_pose, pepseq, scrfxn):
+                        single_motif_complexes += 1
+
+                    system('rm -f {}'.format(complex_name))
+                else:
+                    single_motif_complexes += 1
+
             else:
                 system('rm -f {}'.format(complex_name))
 
@@ -109,18 +112,6 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
                                                                 str(single_motif_complexes)))
 
     return single_motif_complexes
-
-
-def thread_pep(complex_name, complex_pose, indices, log_name, match_to_report, patch_name, patch_pose, pdb_pose, pepseq,
-               rmsd, scrfxn, stretch):
-    thread_pepseq(complex_name, complex_pose, pepseq, scrfxn)
-    motif_seq, patch_seq = compare_motif_seq_id(patch_pose, pdb_pose, indices)
-    pep_template_seq = complex_pose.chain_sequence(2)
-    complex_inf = print_inf(complex_name, match_to_report, motif_seq, patch_name, patch_seq,
-                            pep_template_seq, pepseq, stretch,
-                            rmsd)  # print the information about the motif and patch + alignments of the motifs and peps
-    with open(log_name, 'a') as log:
-        log.write(complex_inf)
 
 
 def print_inf(complex_name, match_to_report, motif_seq, patch_name, patch_seq, pep_template_seq, pepseq, stretch, rmsd):
@@ -174,7 +165,7 @@ def create_complex(receptor, pose_to_cut, pep, complex_name, patch_indices):
     #### In the chain filtering step I will take the chain which is not a receptor chain as a peptide chain
 
     # New filtering: clashes and non-interacting chains
-    is_possible_chain = find_relevant_chains(complex_name, CLASH_DIST, INTERACTION_DIST, patch_indices)
+    is_possible_chain = find_relevant_chains(complex_name, CLASH_DIST, INTERACTION_DIST)
 
     if is_possible_chain:
         return complex_pose
