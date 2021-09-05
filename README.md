@@ -1,5 +1,9 @@
 ## PatchMAN protocol for blind peptide-protein docking
 
+<img align="left" width="500" height="144" src="https://raw.githubusercontent.com/Alisa-Kh/PatchMAN/master/img/PatchMAN_small.PNG"> 
+
+<br /><br /><br /><br /><br />
+
 ### Description
 
 PatchMAN (Patch-Motif AligNments) maps the receptor surface for local structural motif matches in structures of protein monomers and interfaces, to extract complementary fragments and derive templates for peptide-protein docking.
