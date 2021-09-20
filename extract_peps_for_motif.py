@@ -302,8 +302,8 @@ def parse_matches(match_file):
         match_res = match_ranges.split(',')
         for k in range(0, len(match_res), 2):
             stretches.append(list(range(int(match_res[k].lstrip().lstrip('(')), int(match_res[k + 1].rstrip(')')))))
-        t = [float(val) for val in line[line.find('T') + 2:line.find('U')].strip().split()]
-        u_tmp = [float(val) for val in line[line.find('U') + 2:line.find('===')].strip().split()]
+        t = [float(val) for val in line[line.find('T:') + 2:line.find('U:')].strip().split()]
+        u_tmp = [float(val) for val in line[line.find('U:') + 2:line.find('===')].strip().split()]
         u1, u2, u3 = [], [], []
         for j, v in enumerate(u_tmp):
             if j < 3:

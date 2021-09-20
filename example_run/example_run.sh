@@ -4,7 +4,7 @@ rec=1OOT_A.pdb
 pep=1SSH_B.fasta
 native=1OOT_native.pdb
 MASTER='/vol/ek/Home/alisa/tools/master/master-v1.6/bin'
-DB='path/to/DB'
+DB='path/to/DB/*'
 ROSETTA='/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle'
 PATCHMAN='/vol/ek/Home/alisa/scripts/patchman'
 
