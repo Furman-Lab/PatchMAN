@@ -8,9 +8,8 @@ import numpy as np
 def create_layer_selector():
     lay_sel = rosetta.core.select.residue_selector.LayerSelector()
     lay_sel.set_layers(0, 0, 1)
-    lay_sel.set_use_sc_neighbors(0)
+    lay_sel.set_use_sc_neighbors(False)
     lay_sel.set_ball_radius(1.35)
-    # lay_sel.set_cutoffs(5.2, 2)
     return lay_sel
 
 

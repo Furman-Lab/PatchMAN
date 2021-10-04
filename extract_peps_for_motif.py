@@ -89,15 +89,15 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
             complex_pose = create_complex(receptor_pose, superimposed_pose, stretch, complex_name, patch_indices)
 
             if complex_pose:
-
-                pep_template_seq = complex_pose.chain_sequence(2)
-                motif_seq, patch_seq = compare_motif_seq_id(patch_pose, pdb_pose, indices)
-                complex_inf = print_inf(complex_name, match_to_report, motif_seq, patch_name, patch_seq,
-                                        pep_template_seq, pepseq, stretch,rmsd)  # print the information about the motif and patch + alignments of the motifs and peps
-                with open(log_name, 'a') as log:
-                    log.write(complex_inf)
-
                 if not design:
+
+                    pep_template_seq = complex_pose.chain_sequence(2)
+                    motif_seq, patch_seq = compare_motif_seq_id(patch_pose, pdb_pose, indices)
+                    complex_inf = print_inf(complex_name, match_to_report, motif_seq, patch_name, patch_seq,
+                                            pep_template_seq, pepseq, stretch,rmsd)  # print the information about the motif and patch + alignments of the motifs and peps
+                    with open(log_name, 'a') as log:
+                        log.write(complex_inf)
+
                     if thread_pepseq(complex_name, complex_pose, pepseq, scrfxn):
                         single_motif_complexes += 1
 

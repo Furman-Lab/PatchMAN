@@ -20,7 +20,6 @@ def define_motifs(pose, pdb_name):
 
     surf_sel = utils.create_layer_selector()
     selected_res = surf_sel.apply(pose)
-
     include_focus = True
     neighborhood_selector = utils.create_neighborhood_selector(NEIGHBORS_DIST, include_focus)
 
