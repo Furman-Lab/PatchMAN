@@ -37,3 +37,10 @@ Go to line 107 and add the following code (before ```return os;```):
 ### Running PatchMAN
 
 A PatchMAN demo run can be found in the *example_run* folder
+
+### Citing PatchMAN
+
+PatchMAN docking: Modeling peptide-protein interactions in the context of the receptor surface
+Alisa Khramushin, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman
+bioRxiv 2021.09.02.458699; doi: https://doi.org/10.1101/2021.09.02.458699
+
