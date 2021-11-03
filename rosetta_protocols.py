@@ -3,6 +3,13 @@
 from pyrosetta import *
 from pyrosetta.rosetta import *
 
+# #Core
+# from pyrosetta.rosetta.core.pack.task import TaskFactory
+# from pyrosetta.rosetta.core.pack.task import operation
+#
+# #Protocols
+# from pyrosetta.rosetta.protocols import minimization_packing as pack_min
+
 SBATCH_HEADER = '#!/bin/sh\n' \
                 '#SBATCH --ntasks={ntasks}\n' \
                 '#SBATCH --time=50:00:00\n' \
@@ -125,4 +132,24 @@ def write_fpd_flags(models, native, receptor_name):
         flags_string += '-native {}'.format(native)
     with open('flags', 'w') as flags:
         flags.write(flags_string)
+
+# def prepack(pose):
+#
+#     new_pose = pose.clone()
+#
+#     tf = TaskFactory()
+#     tf.push_back(operation.InitializeFromCommandline())
+#     tf.push_back(operation.RestrictToRepacking())
+#     tf.push_back(operation.IncludeCurrent())
+#     tf.push_back(operation.NoRepackDisulfides())
+#
+#     packer = pack_min.PackRotamersMover()
+#     packer.task_factory(tf)
+#
+#     # min = pack_min.MinMover()
+#     # min =
+#
+#     packer.apply(new_pose)
+#
+#     return new_pose
 

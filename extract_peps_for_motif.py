@@ -3,9 +3,7 @@
 from pyrosetta import *
 from pyrosetta.rosetta import *
 import sys
-from Bio import pairwise2
-from Bio.pairwise2 import format_alignment
-from Bio.SubsMat import MatrixInfo as matlist
+
 import time
 from os import system
 from os import path
@@ -85,21 +83,25 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
 
         superimposed_pose = superimpose_using_RT(t, R, pdb_pose)
         for i, stretch in enumerate(stretches):
-            complex_name = patch_name + '_' + motif_pdb + '_' + str(indices[0]) + '_%02d' % i + '.pdb'
-            complex_pose = create_complex(receptor_pose, superimposed_pose, stretch, complex_name, patch_indices)
+            complex_name = patch_name + '_' + motif_pdb + '_%s' % str(indices[0]) + '_%s' % str(indices[-1]) + '.pdb'
+            try:
+                complex_pose = create_complex(receptor_pose, superimposed_pose, stretch, complex_name)
+            except ValueError:
+                continue
 
             if complex_pose:
                 if not design:
 
                     pep_template_seq = complex_pose.chain_sequence(2)
                     motif_seq, patch_seq = compare_motif_seq_id(patch_pose, pdb_pose, indices)
-                    complex_inf = print_inf(complex_name, match_to_report, motif_seq, patch_name, patch_seq,
-                                            pep_template_seq, pepseq, stretch,rmsd)  # print the information about the motif and patch + alignments of the motifs and peps
-                    with open(log_name, 'a') as log:
-                        log.write(complex_inf)
 
                     if thread_pepseq(complex_name, complex_pose, pepseq, scrfxn):
                         single_motif_complexes += 1
+
+                        complex_inf = print_inf(complex_name, match_to_report, motif_seq, patch_name, patch_seq,
+                                                pep_template_seq, pepseq, stretch,rmsd)  # print the information about the motif and patch + alignments of the motifs and peps
+                        with open(log_name, 'a') as log:
+                            log.write(complex_inf)
 
                     system('rm -f {}'.format(complex_name))
                 else:
@@ -116,14 +118,10 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
 
 def print_inf(complex_name, match_to_report, motif_seq, patch_name, patch_seq, pep_template_seq, pepseq, stretch, rmsd):
 
-    pep_alignments = pairwise2.align.globaldx(pepseq, pep_template_seq, matlist.blosum62)
-    motif_alignments = pairwise2.align.globaldx(patch_seq, motif_seq, matlist.blosum62)
-
     inf = 'Complex_name = {complex}; patch = {patch}; match = {match}; stretch = {stretch}\n'.format(
         complex=complex_name, patch=patch_name, match=match_to_report, stretch=','.join([str(r) for r in stretch])) + \
-          'Pep seq: %s\n' % pepseq + 'Template pep seq: %s\n' % pep_template_seq + format_alignment(*pep_alignments[0]) + \
+          'Pep seq: %s\n' % pepseq + 'Template pep seq: %s\n' % pep_template_seq + \
           'Patch seq: %s\n' % patch_seq + 'Motif seq: %s\n' % motif_seq + 'Motif RMSD: %s\n' % rmsd + \
-          format_alignment(*motif_alignments[0]) + \
           '====================================================\n'
 
     return inf
@@ -151,9 +149,12 @@ def thread_pepseq(complex_pose_name, complex_pose, pepseq, scrfxn):
 
     if not fixbb_design(pep_sele, complex_pose_name, pepseq, scrfxn) != 1:
         print('fixbb failed on complex {}'.format(complex_pose_name))
+        return False
+    else:
+        return True
 
 
-def create_complex(receptor, pose_to_cut, pep, complex_name, patch_indices):
+def create_complex(receptor, pose_to_cut, pep, complex_name):
     complex_pose = Pose()
     complex_pose.assign(receptor)
 
@@ -237,9 +238,11 @@ def choose_stretches_only(env_res, chain_breaks, peplen, tot_res):
                 break
             else:
                 for st in elongate_stretch(stretch, peplen, tot_res, chain_breaks):
-                    stretches.append(st)
-        elif len(stretch) >= peplen: # the stretch is long enough
-            stretches.append(stretch)
+                    if st not in stretches:
+                        stretches.append(st)
+        elif len(stretch) == peplen: # the stretch is long enough
+            if stretch not in stretches:
+                stretches.append(stretch)
             stretch = [env_res[i + 1]]
         # check if the res are sequential and that they belong to the same chain
         elif int(res) + 1 == int(env_res[i + 1]) \
@@ -247,7 +250,8 @@ def choose_stretches_only(env_res, chain_breaks, peplen, tot_res):
             stretch.append(env_res[i + 1])
         elif len(stretch) >= 2:
             for st in elongate_stretch(stretch, peplen, tot_res, chain_breaks):
-                stretches.append(st)
+                if st not in stretches:
+                    stretches.append(st)
             stretch = [env_res[i + 1]]
         else:
             stretch = [env_res[i + 1]]

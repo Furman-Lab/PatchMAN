@@ -11,7 +11,7 @@ PATCHMAN='/vol/ek/Home/alisa/scripts/patchman'
 #Split surface to structural patches
 $PATCHMAN/split_to_motifs.py $rec
 
-# Create alist of motifs
+# Create a list of motifs
 ls ???'_'$rec > motif_list
 
 # Create pds files for running MASTER
