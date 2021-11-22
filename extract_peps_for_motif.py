@@ -9,8 +9,6 @@ from os import system
 from os import path
 import argparse
 
-sys.path.insert(1, '/vol/ek/Home/alisa/scripts/motifs/motif_scan')
-
 import pyrosetta_utils as utils
 from chain_filter import find_relevant_chains
 from rosetta_protocols import fixbb_design
@@ -40,8 +38,6 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
     print('Begin generating complexes for a motif')
 
     patch_pose = pose_from_pdb(patch)
-
-    patch_indices = [patch_pose.pdb_info().pose2pdb(i).split()[0] for i in range(1, patch_pose.total_residue() + 1)]
 
     patch_name = patch.split('_')[0]
     log_name = patch_name + '.log'
@@ -83,7 +79,7 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
 
         superimposed_pose = superimpose_using_RT(t, R, pdb_pose)
         for i, stretch in enumerate(stretches):
-            complex_name = patch_name + '_' + motif_pdb + '_%s' % str(indices[0]) + '_%s' % str(indices[-1]) + '.pdb'
+            complex_name = patch_name + '_' + motif_pdb + '_%s' % str(stretch[0]) + '_%s' % str(stretch[-1]) + '.pdb'
             try:
                 complex_pose = create_complex(receptor_pose, superimposed_pose, stretch, complex_name)
             except ValueError:
@@ -93,6 +89,8 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
                 if not design:
 
                     pep_template_seq = complex_pose.chain_sequence(2)
+                    # if 'Z' in pep_template_seq: uncomment after benchmark
+                    #     continue
                     motif_seq, patch_seq = compare_motif_seq_id(patch_pose, pdb_pose, indices)
 
                     if thread_pepseq(complex_name, complex_pose, pepseq, scrfxn):
