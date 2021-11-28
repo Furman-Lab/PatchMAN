@@ -9,6 +9,8 @@ BACKBONE_ATOMS = ['N','O','C','CA']
 CLOSEST_DISTANCE_PERCENTILE = 0.45
 MAX_NON_INT_RESIDUES = 3
 
+# TODO:
+# at least 30% of the pep interacts with the patch, instaed of 45% interacting with protein
 
 def parse_pdb_file(patch_file):
     with open(patch_file, 'r') as f:
@@ -52,8 +54,8 @@ def find_relevant_chains(prot_complex_file, clash_dist, interaction_dist):
     h_names = [name for name in all_names if 'H' in name and name != 'OH'] # all the hydrogens
 
     # TODO: change to
-    # all_atom_names = prot_data.atom_full_name.unique()
-    # h_names = prot_data[prot_data.atom_type == 'H'].atom_full_name.unique() # all the hydrogens
+    all_atom_names = prot_data.atom_full_name.unique()
+    h_names = prot_data[prot_data.atom_type == 'H'].atom_full_name.unique() # all the hydrogens
 
     protein_backbone = receptor[receptor.atom_full_name.isin(BACKBONE_ATOMS)]
     protein_backbone_coords = protein_backbone[['X','Y','Z']].values
