@@ -9,6 +9,7 @@ from pyrosetta.rosetta.core.pack.task import operation
 
 #Protocols
 from pyrosetta.rosetta.protocols import minimization_packing as pack_min
+import re
 
 SBATCH_HEADER = '#!/bin/sh\n' \
                 '#SBATCH --ntasks={ntasks}\n' \
@@ -73,9 +74,15 @@ def fixbb_design(lig_selection, filename, pepseq, scrfxn):
 
     lig_nums = list(map(str, core.select.residue_selector.selection_positions(lig_selection))) # list of str
 
+    # add parsing for PTMs
+    pattern = re.compile(r'\[[A-Z]{3,4}\]|([A-Z])')
+
     with open(filename+'_resfile', 'w') as resfile:
         resfile.write('NATRO\nSTART\n')
-        for i, res in enumerate(pepseq):
+        for i, res in re.findall(pattern, pepseq):
+            if res[0] == '[': # not non-canonical amino acid
+                res = f'X{res}'
+
             if complex_pose.chain_sequence(2)[i] != res:  # to keep the original rotamers
                 line = '{orig_aa} {chain} PIKAA {new_aa} EX 1 EX 2\n'.format(orig_aa=lig_nums[i],
                                                                              chain=complex_pose.pdb_info().chain(int(lig_nums[i])),
