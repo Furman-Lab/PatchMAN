@@ -78,8 +78,6 @@ def fixbb_design(lig_selection, filename, pepseq, scrfxn):
 
         for i, res in enumerate(amino_acids):
             if res[0] == '[': # non-canonical amino acids can only be mutated with MutateResidueMover
-                print("mutating residue: " + str(i) + " to non-canonical: " + res)
-                # res = 'X{res}'.format(res=res)
                 mutate_residue = pyrosetta.rosetta.protocols.simple_moves.MutateResidue()
                 res = res[1:-1]
                 mutate_residue.set_res_name(res)
@@ -99,7 +97,6 @@ def fixbb_design(lig_selection, filename, pepseq, scrfxn):
                 else:
                     line = '{orig_aa} {chain} NATRO \n'.format(orig_aa=lig_nums[i],
                                                                chain=complex_pose.pdb_info().chain(int(lig_nums[i])))
-                print(line)
                 resfile.write(line)
 
     # Setting up packer based on the mutated pose, not the original one. Otherwise it crashes on the mutated pose.
@@ -119,7 +116,7 @@ def fixbb_design(lig_selection, filename, pepseq, scrfxn):
         return 1
     complex_pose.dump_pdb(os.path.splitext(filename)[0] + '_0001.pdb')
 
-    # os.remove(filename + '_resfile')
+    os.remove(filename + '_resfile')
 
 
 def run_fpd(models, receptor_name, native):
