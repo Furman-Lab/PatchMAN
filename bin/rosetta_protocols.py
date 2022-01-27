@@ -6,6 +6,7 @@ from pyrosetta.rosetta import *
 #Core
 from pyrosetta.rosetta.core.pack.task import TaskFactory
 from pyrosetta.rosetta.core.pack.task import operation
+from rosetta.protocols.simple_moves import MutateResidue
 
 #Protocols
 from pyrosetta.rosetta.protocols import minimization_packing as pack_min
@@ -67,30 +68,44 @@ def fixbb_design(lig_selection, filename, pepseq, scrfxn):
     """Receives indices of the residues to mutate, filename, peptide sequence and score function,
     run fixbb and dumps designed pdb if successful"""
     complex_pose = pose_from_pdb(filename)
+    lig_nums = list(map(str, core.select.residue_selector.selection_positions(lig_selection))) # list of str
+    pattern = re.compile(r'(\[[A-Z]{3,4}:[a-z]+\]|[A-Z])') # add parsing for PTMs
 
+    print('writing resfile: ' + filename +'_resfile')
+    with open(filename+'_resfile', 'w') as resfile:
+        resfile.write('NATRO\nSTART\n')
+        amino_acids = re.findall(pattern, pepseq)
+
+        for i, res in enumerate(amino_acids):
+            if res[0] == '[': # non-canonical amino acids can only be mutated with MutateResidueMover
+                print("mutating residue: " + str(i) + " to non-canonical: " + res)
+                # res = 'X{res}'.format(res=res)
+                mutate_residue = pyrosetta.rosetta.protocols.simple_moves.MutateResidue()
+                res = res[1:-1]
+                mutate_residue.set_res_name(res)
+                mutate_residue.set_target(lig_nums[i])
+
+                mutate_residue.apply(complex_pose)
+                # complex_pose.dump_pdb('mutated.pdb')
+
+                # leave this residue alone when packing
+                line = '{orig_aa} {chain} NATRO \n'.format(orig_aa=lig_nums[i],
+                                                           chain=complex_pose.pdb_info().chain(int(lig_nums[i])))
+            else:
+                if complex_pose.chain_sequence(2)[i] != res:  # to keep the original rotamers
+                    line = '{orig_aa} {chain} PIKAA {new_aa} EX 1 EX 2\n'.format(orig_aa=lig_nums[i],
+                                                                                 chain=complex_pose.pdb_info().chain(int(lig_nums[i])),
+                                                                                 new_aa=res)
+                else:
+                    line = '{orig_aa} {chain} NATRO \n'.format(orig_aa=lig_nums[i],
+                                                               chain=complex_pose.pdb_info().chain(int(lig_nums[i])))
+                print(line)
+                resfile.write(line)
+
+    # Setting up packer based on the mutated pose, not the original one. Otherwise it crashes on the mutated pose.
     task_factory = core.pack.task.TaskFactory()
     packer_task = task_factory.create_packer_task(complex_pose)
     packer_task.restrict_to_residues(lig_selection)
-
-    lig_nums = list(map(str, core.select.residue_selector.selection_positions(lig_selection))) # list of str
-
-    # add parsing for PTMs
-    pattern = re.compile(r'\[[A-Z]{3,4}\]|([A-Z])')
-
-    with open(filename+'_resfile', 'w') as resfile:
-        resfile.write('NATRO\nSTART\n')
-        for i, res in re.findall(pattern, pepseq):
-            if res[0] == '[': # not non-canonical amino acid
-                res = f'X{res}'
-
-            if complex_pose.chain_sequence(2)[i] != res:  # to keep the original rotamers
-                line = '{orig_aa} {chain} PIKAA {new_aa} EX 1 EX 2\n'.format(orig_aa=lig_nums[i],
-                                                                             chain=complex_pose.pdb_info().chain(int(lig_nums[i])),
-                                                                             new_aa=res)
-            else:
-                line = '{orig_aa} {chain} NATRO \n'.format(orig_aa=lig_nums[i],
-                                                           chain=complex_pose.pdb_info().chain(int(lig_nums[i])))
-            resfile.write(line)
 
     read_resfile = core.pack.task.operation.ReadResfile()
     read_resfile.filename(filename+'_resfile')
@@ -104,7 +119,7 @@ def fixbb_design(lig_selection, filename, pepseq, scrfxn):
         return 1
     complex_pose.dump_pdb(os.path.splitext(filename)[0] + '_0001.pdb')
 
-    os.remove(filename + '_resfile')
+    # os.remove(filename + '_resfile')
 
 
 def run_fpd(models, receptor_name, native):

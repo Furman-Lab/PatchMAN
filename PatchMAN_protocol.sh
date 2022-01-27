@@ -11,8 +11,7 @@ die() {
 
 [ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: $PROTOCOL_ROOT"
 
-export PROTOCOL_ROOT=/vol/ek/share/patchman_for_server
-
+export PROTOCOL_ROOT=$(dirname $(realpath $BASH_SOURCE)) # changed for development purposes but could probably stay like that
 export BIN_DIR=${PROTOCOL_ROOT}/bin
 
 export ROSETTA_DB=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/database
@@ -31,8 +30,7 @@ export VIRTUAL_ENV=/cs/labs/fora/projects/autopeptidb/staging/venv_PatchmanProto
 #activating virtual env (needed for various python libraries used in the protocol)
 . $VIRTUAL_ENV/bin/activate || die "No virtual environment detected. Please install it first by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
 
-
-module load openmpi/2.1.6 
+module load openmpi/2.1.6
 
 # Defaults
 work_dir=$(pwd)
@@ -97,7 +95,8 @@ done
 shift "$((OPTIND-1))"
 
 [ -r "$1" ] || die "Receptor is not a readable file: $1"
-[[ "$2" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2"
+pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # remove PTMs for validation of the rest of the peptide
+[[ "$pep_sequence_to_validate" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2" # modified for PTM
 
 # Creating a directory for the job and copying inputs to it
 receptor=$(readlink -f $1)
