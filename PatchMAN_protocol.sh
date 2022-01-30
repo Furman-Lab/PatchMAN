@@ -37,6 +37,7 @@ work_dir=$(pwd)
 job_name="PatchMAN_JOB"
 cluster_radius="2.0"
 min_rec_bb="true"
+nstruct=1
 
 
 usage() {
@@ -70,11 +71,14 @@ while getopts :hvw:g:t:f:j:s:n:m: opt; do
 			work_dir=$OPTARG
 			;;
 		t)
-			n_top_rots=$OPTARG
+			nstruct=$OPTARG
 			;;
 
-    m)
+		m)
 			min_rec_bb=$OPTARG
+			;;
+		s)
+			mask=$(readlink -f $OPTARG)
 			;;
 		v)
 			verbose=True
@@ -106,11 +110,17 @@ pushd $work_dir > /dev/null
 
 cp $receptor .
 
+if  [[ -f $mask ]]
+then
+	cp $mask .
+fi
+
 receptor=$(readlink -f $(basename $receptor))
 receptor_base=$(basename $receptor)
+mask=$(readlink -f $(basename $mask))
 
 # Step 1: Split to motifs
-python ${BIN_DIR}/split_to_motifs.py "$receptor"
+python ${BIN_DIR}/split_to_motifs.py "$receptor" "$mask"
 
 clean_rec=`echo ${receptor_base::-4}`'.clean.pdb'
 rec_name=`echo ${receptor_base::-4}`
@@ -138,7 +148,7 @@ extract_templates_jid=$(sbatch --array=0-"$n_searches"%50 --dependency=afterok:"
 
 # Step 4: FPD
 fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
-          fpd.sh "$clean_rec" "$min_rec_bb" | awk '{print $NF}')
+          fpd.sh "$clean_rec" "$min_rec_bb" "$nstruct" | awk '{print $NF}')
 
 
 # Step 5: Clustering
