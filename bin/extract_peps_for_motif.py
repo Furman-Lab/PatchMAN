@@ -3,6 +3,7 @@
 from pyrosetta import *
 from pyrosetta.rosetta import *
 import sys
+import re
 
 import time
 from os import system
@@ -78,6 +79,7 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
             continue
 
         # filter short stretches
+        print('peplen: ' + str(plen))
         stretches = choose_stretches_only(env_res, chain_breaks, plen, tot_res)  # elongate and filter afterwards
 
         if not stretches:
@@ -106,7 +108,7 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
                                                 pep_template_seq, pepseq, stretch,rmsd)  # print the information about the motif and patch + alignments of the motifs and peps
                         with open(log_name, 'a') as log:
                             log.write(complex_inf)
-
+                        break
                     system('rm -f {}'.format(complex_name))
                 else:
                     single_motif_complexes += 1
@@ -359,9 +361,12 @@ def main():
                 pepseq = peptide_seq[1].strip()
             else:
                 pepseq = peptide_seq[0].strip()
-        plen = len(pepseq)
+
+        pattern = re.compile(r'(\[[A-Z]{3,4}:[a-z]+\]|[A-Z])') # if contains non-canonical residues, the peptide length is different
+        split_peptide = re.findall(pattern, pepseq)
+        plen = len(split_peptide)
     else:
-        pepseq=None
+        pepseq = None
         plen = int(args.plen) # peptide length (for design)
 
     extract_templates_for_motif(all_matches, pepseq, plen, patch, receptor_pose, scrfxn, args.design)

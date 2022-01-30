@@ -31,13 +31,12 @@ export ROSETTA_BIN='$ROSETTA_SINGULARITY/main/source/bin/' ### TODO: modify with
 #activating virtual env (needed for various python libraries used in the protocol)
 #. $VIRTUAL_ENV/bin/activate || die "No virtual environment detected. Please install it first by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
 
-module load openmpi/2.1.6 # is this needed? should not it be in the sbatch header
-
 # Defaults
 work_dir=$(pwd)
 job_name="PatchMAN_JOB"
 cluster_radius="2.0"
 min_rec_bb="true"
+nstruct=1
 
 usage() {
 	cat <<-USAGE
@@ -70,11 +69,14 @@ while getopts :hvw:g:t:f:j:s:n:m: opt; do
 			work_dir=$OPTARG
 			;;
 		t)
-			n_top_rots=$OPTARG
+			nstruct=$OPTARG
 			;;
 
-    m)
+		m)
 			min_rec_bb=$OPTARG
+			;;
+		s)
+			mask=$(readlink -f $OPTARG)
 			;;
 		v)
 			verbose=True
@@ -95,7 +97,8 @@ done
 shift "$((OPTIND-1))"
 
 [ -r "$1" ] || die "Receptor is not a readable file: $1"
-[[ "$2" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2"
+pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # remove PTMs for validation of the rest of the peptide
+[[ "$pep_sequence_to_validate" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2" # modified for PTM
 
 # Creating a directory for the job and copying inputs to it
 receptor=$(readlink -f $1)
@@ -105,11 +108,17 @@ pushd $work_dir > /dev/null
 
 cp $receptor .
 
+if  [[ -f $mask ]]
+then
+	cp $mask .
+fi
+
 receptor=$(readlink -f $(basename $receptor))
 receptor_base=$(basename $receptor)
+mask=$(readlink -f $(basename $mask))
 
 # Step 1: Split to motifs
-python $PYTHON_SINGULARITY/split_to_motifs.py "$receptor"
+python ${BIN_DIR}/split_to_motifs.py "$receptor" "$mask"
 
 clean_rec=`echo ${receptor_base::-4}`'.clean.pdb'
 rec_name=`echo ${receptor_base::-4}`
@@ -137,7 +146,7 @@ extract_templates_jid=$(sbatch --array=0-"$n_searches"%50 --dependency=afterok:"
 
 # Step 4: FPD
 fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
-          fpd.sh "$clean_rec" "$min_rec_bb" | awk '{print $NF}')
+          fpd.sh "$clean_rec" "$min_rec_bb" "$nstruct" | awk '{print $NF}')
 
 
 # Step 5: Clustering
