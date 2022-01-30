@@ -1,0 +1,44 @@
+Bootstrap: docker
+From: python:3.5.6
+
+%setup
+
+%files
+	openmpi.tar.bz2 .
+	rosetta.tar.gz .
+
+%post
+	OMPI_DIR=/opt/ompi
+	PATH=$OMPI_DIR/bin:$PATH
+	LD_LIBRARY_PATH=$OMPI_DIR/lib:$LD_LIBRARY_PATH
+	MANPATH=$OMPI_DIR/share/man:$MANPATH
+
+	echo "export OMPI_DIR=\"${OMPI_DIR}\"" >> $SINGULARITY_ENVIRONMENT
+	echo "export PATH=\"${PATH}\"" >> $SINGULARITY_ENVIRONMENT
+	echo "export LD_LIBRARY_PATH=\"${LD_LIBRARY_PATHMANPATH}\"" >> $SINGULARITY_ENVIRONMENT
+	echo "export MANPATH=\"${MANPATH}\"" >> $SINGULARITY_ENVIRONMENT
+
+
+	##### OpenMPI #####
+	mkdir -p /opt openmpi
+	tar -xjf openmpi.tar.bz2 -C openmpi --strip-components=1
+	rm openmpi.tar.bz2
+
+	# Compile and install
+	cd openmpi/
+	./configure --prefix=$OMPI_DIR 
+	make install
+	cd ..
+	rm -rf openmpi/
+
+	##### Rosetta #####
+	mkdir rosetta
+	tar --extract --file rosetta.tar.gz -C rosetta
+	rm /rosetta.tar.gz
+
+	# Compile Rosetta
+	ls rosetta/
+	cd rosetta/*/main/source
+	./scons.py -j 3 extras=mpi,serialization mode=release bin # change extras and number of cores used for compilation as needed
+
+	

@@ -1,0 +1,24 @@
+Bootstrap: docker
+From: python:3.5.6
+
+%setup
+
+%files
+	bin/* python_scripts
+	requirements.txt .
+	.env env
+	pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl  . 
+
+%post
+	apt update 
+	apt install -y --no-install-recommends python3-pip gfortran python3-dev
+	apt -y clean
+	rm -rf rm -rf /var/lib/apt/lists/*
+	
+	# install 
+	pip install --upgrade pip
+	pip install -r requirements.txt
+
+	# Install PyRosetta
+	pip install pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl 
+	rm pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl 

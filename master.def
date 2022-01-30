@@ -1,0 +1,36 @@
+Bootstrap: docker
+From: debian
+
+%setup
+
+%post
+	apt -y update
+	apt -y install curl make build-essential
+	
+	# Download MASTER
+	curl -f -o  master-v1.6.tar.gz https://grigoryanlab.org/master/master-v1.6.tar.gz
+	tar xvzf master-v1.6.tar.gz
+	rm master-v1.6.tar.gz
+	cp master-v1.6/src/Match.cpp master-v1.6/src/Match_old.cpp
+
+	# patch	MASTER
+	head -106 master-v1.6/src/Match_old.cpp > master-v1.6/src/Match.cpp
+	echo "double **R=((Match*)(&m))->getRotation();"  >> master-v1.6/src/Match.cpp
+	echo "double *T=((Match*)(&m))->getTranslation();"  >> master-v1.6/src/Match.cpp
+	echo ""  >> master-v1.6/src/Match.cpp
+	echo "os << \" T: \" << T[0]    << \" \" << T[1]    << \" \" << T[2]    << \" \";"  >> master-v1.6/src/Match.cpp
+	echo "os << \" U: \" << R[0][0] << \" \" << R[0][1] << \" \" << R[0][2] << \" \""   >> master-v1.6/src/Match.cpp
+	echo "             << R[1][0] << \" \" << R[1][1] << \" \" << R[1][2] << \" \""     >> master-v1.6/src/Match.cpp
+	echo "             << R[2][0] << \" \" << R[2][1] << \" \" << R[2][2] << \" ===\" ;" >> master-v1.6/src/Match.cpp
+	tail -n +107 master-v1.6/src/Match_old.cpp >> master-v1.6/src/Match.cpp
+
+	# Get mslib for MASTER
+	curl -f -o msl-static-Linux-x86-64_1.2.2.7.tar.gz https://grigoryanlab.org/msl/msl-static-Linux-x86-64_1.2.2.7.tar.gz
+	tar --extract --file msl-static-Linux-x86-64_1.2.2.7.tar.gz
+
+	# Compile MASTER
+	cd master-v1.6/
+	make all
+
+%files
+	db_list_30nonred master-v1.6/

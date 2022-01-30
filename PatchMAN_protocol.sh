@@ -11,35 +11,33 @@ die() {
 
 [ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: $PROTOCOL_ROOT"
 
-export PROTOCOL_ROOT=/vol/ek/share/patchman_for_server
-
+export PROTOCOL_ROOT=$(dirname $(realpath $BASH_SOURCE))
 export BIN_DIR=${PROTOCOL_ROOT}/bin
 
-export ROSETTA_DB=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/database
-export ROSETTA_BIN=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/source/bin
-export ROSETTA_TOOLS=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/tools
-export MASTER=/vol/ek/share/master_forPatchMAN
+# export ROSETTA_DB=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/database # this does not need to be defined
+# export ROSETTA_BIN=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/source/bin
+#export MASTER=/vol/ek/share/master_forPatchMAN
 
-export PATH=.:${BIN_DIR}:/vol/ek/share/labscripts:/vol/ek/share/bin:usr/local/bin:/usr/bin:/bin:/usr/X11R6/bin:/usr/lib/mh:/etc/alternatives/slurm/bin
-export VIRTUAL_ENV=/cs/labs/fora/projects/autopeptidb/staging/venv_PatchmanProtocol
-#export VIRTUAL_ENV=/cs/labs/fora/projects/autopeptidb/staging/virtualenv-linux
+export PATH=.:${BIN_DIR}
+# export VIRTUAL_ENV=/cs/labs/fora/projects/autopeptidb/staging/venv_PatchmanProtocol # virtual env should be the container
 
-#libg2c is missing in the charmm binary that used by piper
-#export LD_LIBRARY_PATH=/vol/ek/share/libg2c:${LD_LIBRARY_PATH}
-
+# If you do not run a singularity container change these paths accordingly
+export PYTHON_SINGULARITY="singularity exec python.sif /python_scripts/" # change this to python
+export ROSETTA_SINGULARITY='singularity exec rosetta.sif /rosetta//rosetta_src_2019.14.60699_bundle/' # change this to Rosetta's path
+export MASTER='singularity run master.sif /master-v1.6/bin/' # change this to path to Master's path
+export ROSETTA_TOOLS="$ROSETTA_SINGULARITY/tools/"
+export ROSETTA_BIN='$ROSETTA_SINGULARITY/main/source/bin/' ### TODO: modify with path
 
 #activating virtual env (needed for various python libraries used in the protocol)
-. $VIRTUAL_ENV/bin/activate || die "No virtual environment detected. Please install it first by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
+#. $VIRTUAL_ENV/bin/activate || die "No virtual environment detected. Please install it first by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
 
-
-module load openmpi/2.1.6 
+module load openmpi/2.1.6 # is this needed? should not it be in the sbatch header
 
 # Defaults
 work_dir=$(pwd)
 job_name="PatchMAN_JOB"
 cluster_radius="2.0"
 min_rec_bb="true"
-
 
 usage() {
 	cat <<-USAGE
@@ -111,7 +109,7 @@ receptor=$(readlink -f $(basename $receptor))
 receptor_base=$(basename $receptor)
 
 # Step 1: Split to motifs
-python ${BIN_DIR}/split_to_motifs.py "$receptor"
+python $PYTHON_SINGULARITY/split_to_motifs.py "$receptor"
 
 clean_rec=`echo ${receptor_base::-4}`'.clean.pdb'
 rec_name=`echo ${receptor_base::-4}`
