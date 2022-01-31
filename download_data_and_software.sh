@@ -24,9 +24,9 @@ PYROSETTA_LINK=https://graylab.jhu.edu/download/PyRosetta4/archive/release/PyRos
 curl -k -f -o pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl -u ${PYROSETTA_USER}:${PYROSETTA_PASS} $PYROSETTA_LINK --keepalive-time 2 -H 'Expect:'
 
 # Download database for Master
-echo "Downloading database for Master search. This may take a while..."
+echo "Downloading and extracting database for Master search. This may take a while..."
 wget masterDB.tar.gz https://www.cs.huji.ac.il/~jvarga/masterDB.tar.gz
-tar -xvzf masterDB.tar.gz
+tar -xzf masterDB.tar.gz
 find $PWD/masterDB/ -name '*pds'  > db_list_30nonred # create list file for Master search
 
 # Download OpenMPI that matches with host distribution. If you need an other one, change OMPI_VERSION.

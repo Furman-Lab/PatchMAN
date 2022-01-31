@@ -4,8 +4,9 @@ From: python:3.5.6
 %setup
 
 %files
-	openmpi.tar.bz2 .
-	rosetta.tar.gz .
+	mkdir $SINGULARITY_ROOTFS/openmpi $SINGULARITY_ROOTFS/rosetta
+	tar -xjf openmpi.tar.bz2 -C $SINGULARITY_ROOTFS/openmpi --strip-components=1
+	tar -xzf rosetta.tar.gz -C $SINGULARITY_ROOTFS/rosetta
 
 %post
 	OMPI_DIR=/opt/ompi
@@ -21,8 +22,6 @@ From: python:3.5.6
 
 	##### OpenMPI #####
 	mkdir -p /opt openmpi
-	tar -xjf openmpi.tar.bz2 -C openmpi --strip-components=1
-	rm openmpi.tar.bz2
 
 	# Compile and install
 	cd openmpi/
@@ -33,8 +32,6 @@ From: python:3.5.6
 
 	##### Rosetta #####
 	mkdir rosetta
-	tar --extract --file rosetta.tar.gz -C rosetta
-	rm /rosetta.tar.gz
 
 	# Compile Rosetta
 	ls rosetta/
