@@ -3,7 +3,7 @@
 #SBATCH --mem=2000m
 
 # sort by reweighted_sc
-printScoreFile_byHeader.pl score.sc reweighted_sc I_sc rmsBB rmsBB_if description | gawk '{print $2, $3, $4, $5, $6}' > short.sc
+${BIN_DIR}/printScoreFile_byHeader.pl score.sc reweighted_sc I_sc rmsBB rmsBB_if description | gawk '{print $2, $3, $4, $5, $6}' > short.sc
 sort -nk1 short.sc > sorted.sc
 
 # filter possible disulf bridges
@@ -21,7 +21,7 @@ fi
 
 # tale top 1 percent structures
 nlines=`wc -l sorted.sc | gawk '{print $1}'`
-head -$(($nlines/100)) sorted.sc | gawk '{print $NF}'> top1percent
+head -$(($nlines/100)) sorted.sc | gawk '{print $NF}'> top1percent # needs to be more for masked structures
 
 # run clustering
 mkdir clustering
@@ -33,4 +33,4 @@ plen=`echo ${#peps}`
 R=$2 #radius arg
 actualR=`date | awk '{print sqrt('$plen'/'$len')*'$R'}'`
 echo actual radius is "$actualR"
-$ROSETTA_BIN/cluster.linuxgccrelease -in:file:silent ../decoys.silent -in:file:silent_struct_type binary -cluster:radius "$actualR" -in:file:fullatom -tags `cat ../top1percent` > clog
+${ROSETTA_BIN}/cluster.linuxgccrelease -in:file:silent ../decoys.silent -in:file:silent_struct_type binary -cluster:radius "$actualR" -in:file:fullatom -tags `cat ../top1percent` > clog

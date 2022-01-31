@@ -1,33 +1,25 @@
 #!/bin/bash
 # The PatchMAN protocol.
-# It sends jobs asynchronously via Slurm
+# It sends jobs asynchronously via Slurm.
 
 die() {
 	echo >&2 -e "\nERROR: $@\n"
 	exit 1
 }
 
-[ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: $PROTOCOL_ROOT"
-
 export PROTOCOL_ROOT=$(dirname $(realpath $BASH_SOURCE))
 export BIN_DIR=${PROTOCOL_ROOT}/bin
-
-# export ROSETTA_DB=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/database # this does not need to be defined
-# export ROSETTA_BIN=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/source/bin
-#export MASTER=/vol/ek/share/master_forPatchMAN
-
 export PATH=.:${BIN_DIR}
-# export VIRTUAL_ENV=/cs/labs/fora/projects/autopeptidb/staging/venv_PatchmanProtocol # virtual env should be the container
+
+[ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: $PROTOCOL_ROOT"
 
 # If you do not run a singularity container change these paths accordingly
-export PYTHON_SINGULARITY="singularity exec python.sif /python_scripts/" # change this to python
+export PYTHON_SINGULARITY="singularity exec python.sif python /python_scripts/" # change this to python
 export ROSETTA_SINGULARITY='singularity exec rosetta.sif /rosetta//rosetta_src_2019.14.60699_bundle/' # change this to Rosetta's path
-export MASTER='singularity run master.sif /master-v1.6/bin/' # change this to path to Master's path
+export MASTER='singularity run --bind $PROTOCOL_ROOT:$PROTOCOL_ROOT master.sif /master-v1.6/bin/' # change this to path to Master's path
+# export PERL='singularity run master.sif perl'
 export ROSETTA_TOOLS="$ROSETTA_SINGULARITY/tools/"
 export ROSETTA_BIN='$ROSETTA_SINGULARITY/main/source/bin/' ### TODO: modify with path
-
-#activating virtual env (needed for various python libraries used in the protocol)
-#. $VIRTUAL_ENV/bin/activate || die "No virtual environment detected. Please install it first by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
 
 # Defaults
 work_dir=$(pwd)
@@ -54,7 +46,7 @@ usage() {
 		-e error log file (Default is stderr)
 		-v verbose (default: false)
 		-n job name
-
+	USAGE
 }
 
 
@@ -124,7 +116,6 @@ python ${BIN_DIR}/split_to_motifs.py "$receptor" "$mask"
 
 clean_rec=`echo ${receptor_base::-4}`'.clean.pdb'
 rec_name=`echo ${receptor_base::-4}`
-#rec_name=`echo $receptor | rev | cut -d '/' -f 1 | rev`
 ppkrec=`echo ${receptor_base::-4}'.clean.ppk.pdb'`
 echo "DEBUG| " $clean_rec $rec_name $ppkrec
 ls ???'_'$rec_name'.pdb' > motif_list
@@ -135,13 +126,16 @@ n_searches=$(wc -l motif_list | gawk '{print $1}')
 # Step 2: Run MASTER
 run_master_jid=$(sbatch --array=0-"$n_searches"%50 run_master.sh | awk '{print $NF}')
 
+
 # Step2.5: Prepack receptor
 prep_input_jid=$(sbatch --dependency=afterany:"${run_master_jid}" --job-name=prep_input --get-user-env --time=90:00:00\
                 --mem=1600m prepare_input.sh $clean_rec | awk '{print $NF}')
 
+
 # Step3: Extract templates
 extract_templates_jid=$(sbatch --array=0-"$n_searches"%50 --dependency=afterok:"${prep_input_jid}" run_extract_templates.sh \
                     "$pep_sequence" "$ppkrec" | awk '{print $NF}')
+
 
 # Step 4: FPD
 fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \

@@ -12,6 +12,6 @@ motif=${motifs["$SLURM_ARRAY_TASK_ID"]}
 
 echo $1 > pepfile
 
-python ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
+${PYTHON_SINGULARITY}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
 
 #echo 'TEST'

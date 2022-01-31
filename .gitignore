@@ -6,3 +6,4 @@
 masterDB/
 db_list_30nonred
 Dockerfile
+bin/__pycache__/
