@@ -2,6 +2,7 @@
 *zip
 *whl
 *tar*
-*sif
+*sif*
 masterDB/
 db_list_30nonred
+Dockerfile

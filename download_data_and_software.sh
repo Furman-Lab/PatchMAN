@@ -6,9 +6,12 @@
 # running Master                                          #
 ###########################################################
 
+
 # Get Rosetta and PyRosetta username and password from .env file. Create this file based on sample.env
 # For Rosetta, obtain a license from: https://els2.comotion.uw.edu/product/rosetta
 # For PyRosetta, obtain a license from: https://els2.comotion.uw.edu/product/pyrosetta
+
+
 source .env
 
 # Download Rosetta

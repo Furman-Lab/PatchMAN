@@ -1,8 +1,6 @@
 #!/bin/bash
 # The PatchMAN protocol.
-# It sends jobs asynchronously via Slurm. It is very important that this scripts
-# returns as fast as possible, as it is called periodically by the daemon, so all actions here needs to
-# to be fast - no copying large files, running external scripts synchronously etc.
+# It sends jobs asynchronously via Slurm
 
 die() {
 	echo >&2 -e "\nERROR: $@\n"
@@ -41,18 +39,22 @@ nstruct=1
 usage() {
 	cat <<-USAGE
 	Usage: ${0##*/} [opts] RECEPTOR PEPTIDE_SEQUENCE
-	TODO: describe
+	PatchMAN performs search on existing protein monomers and complexes with structural motifs extracted from the query receptor and extract complementary fragments to be used as templates for peptide-protein interactions.
 
-		TODO: replace this with real options
-		-o output directory for the ligands (Default: working directory)
-		-p prefix for each ligand file extracted (Default: none)
-        -s secondary structure (default: None)
-        -m minimize receptor backbone (default: false)
+		RECEPTOR: PDB file with the receptor protein
+		PEPTIDE_SEQUENCE can include modified residues in "GFK[SER:phosphorylated]RAD" format.
+
+        	-m minimize receptor backbone (true or false; default: true)
+		-t number of refinement runs for FlexPepDock (default: 1)
+		-s masked residues as a PDB structure (default: None)
+
+		-w working directory (default: current directory)
+		-o output directory for the ligands (default: working directory)
 		-g log file (Default is stdout)
 		-e error log file (Default is stderr)
-        -v print information about the job
+		-v verbose (default: false)
+		-n job name
 
-	USAGE
 }
 
 
@@ -71,7 +73,6 @@ while getopts :hvw:g:t:f:j:s:n:m: opt; do
 		t)
 			nstruct=$OPTARG
 			;;
-
 		m)
 			min_rec_bb=$OPTARG
 			;;
@@ -108,6 +109,7 @@ pushd $work_dir > /dev/null
 
 cp $receptor .
 
+# Do not throw error if no mask was provided
 if  [[ -f $mask ]]
 then
 	cp $mask .
@@ -133,9 +135,6 @@ n_searches=$(wc -l motif_list | gawk '{print $1}')
 # Step 2: Run MASTER
 run_master_jid=$(sbatch --array=0-"$n_searches"%50 run_master.sh | awk '{print $NF}')
 
-## Step2.5: Download all pdbs and prepack receptor
-#prep_input_jid=$(sbatch --dependency=afterany:"${run_master_jid}" --job-name=prep_input --get-user-env --time=90:00:00\
-#                --mem=1600m download_all_pdbs.sh $clean_rec | awk '{print $NF}')
 # Step2.5: Prepack receptor
 prep_input_jid=$(sbatch --dependency=afterany:"${run_master_jid}" --job-name=prep_input --get-user-env --time=90:00:00\
                 --mem=1600m prepare_input.sh $clean_rec | awk '{print $NF}')
@@ -185,7 +184,6 @@ finalize_jid=$(sbatch \
 
 	Slurm job IDs: $run_master_jid $extract_templates_jid $fpd_jid $clustering_jid $finalize_jid
 	Current working directory: $(pwd)
-#	Notification script: $([ "$notify_script" ] && echo $notify_script)
 	------------------------------------------------
 
 	JOBINFO
