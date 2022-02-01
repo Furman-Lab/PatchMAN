@@ -35,8 +35,6 @@ sudo singularity build master.sif master.def # this also takes care of patching 
 
 #### Installation without containers
 
-##### Installation
-
 - The required python packages can be installed with `pip install -r requirements.txt`
 - Install [PyRosetta](https://www.pyrosetta.org/downloads/legacy-pyrosetta3-download) and [Rosetta](https://www.rosettacommons.org/software/license-and-download) from the downloaded rosetta.tar.gz and wheel files.
 - Set up MASTER
