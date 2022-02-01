@@ -1,8 +1,0 @@
-Bootstrap: docker
-From: python:3.5.6
-
-%setup
-	echo $SINGULARITY_ROOTFS/
-	mkdir $SINGULARITY_ROOTFS/openmpi
-	tar -xvjf openmpi.tar.bz2 -C $SINGULARITY_ROOTFS/openmpi
-
