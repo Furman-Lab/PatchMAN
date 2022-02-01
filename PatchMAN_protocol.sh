@@ -29,11 +29,11 @@ export PYTHONPATH="" # messes up python packages inside the container otherwise
 [ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: ${PROTOCOL_ROOT}"
 
 # If you do not run a singularity container change these paths accordingly
-export PYTHON_SINGULARITY="singularity exec ${PROTOCOL_ROOT}/python.sif python /python_scripts/" # change this to python
-export ROSETTA_SINGULARITY="singularity exec ${PROTOCOL_ROOT}/rosetta.sif /rosetta/" # change this to Rosetta's path
-export MASTER_SINGULARITY="singularity run --bind ${PROTOCOL_ROOT}:${PROTOCOL_ROOT} ${PROTOCOL_ROOT}/master.sif /master-v1.6/bin/" # change this to path to Master's path
-export ROSETTA_TOOLS="${ROSETTA_SINGULARITY}/tools/"
-export ROSETTA_BIN="${ROSETTA_SINGULARITY}/main/source/bin/"
+export PYTHON="singularity exec ${PROTOCOL_ROOT}/python.sif python /python_scripts/" # change this to python
+export ROSETTA="singularity exec ${PROTOCOL_ROOT}/rosetta.sif /rosetta/" # change this to Rosetta's path
+export MASTER="singularity run --bind ${PROTOCOL_ROOT}:${PROTOCOL_ROOT} ${PROTOCOL_ROOT}/master.sif /master-v1.6/bin/" # change this to path to MASTER's path
+export ROSETTA_TOOLS="${ROSETTA}/tools/"
+export ROSETTA_BIN="${ROSETTA}/main/source/bin/"
 
 # Defaults
 work_dir=$(pwd)
@@ -126,13 +126,13 @@ then
 fi
 
 # Step 1: Split to motifs
-${PYTHON_SINGULARITY}/split_to_motifs.py "$receptor" "$mask"
+${PYTHON}/split_to_motifs.py "$receptor" "$mask"
 clean_rec=`echo ${receptor_base::-4}`'.clean.pdb'
 rec_name=`echo ${receptor_base::-4}`
 ppkrec=`echo ${receptor_base::-4}'.clean.ppk.pdb'`
 echo "DEBUG| " $clean_rec $rec_name $ppkrec
 ls ???'_'$rec_name'.pdb' > motif_list
-${MASTER_SINGULARITY}/createPDS --type query --pdbList motif_list
+${MASTER}/createPDS --type query --pdbList motif_list
 
 n_searches=$(wc -l motif_list | gawk '{print $1}')
 
