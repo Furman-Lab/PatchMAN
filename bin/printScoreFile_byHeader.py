@@ -19,3 +19,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+    # switch chains A and B in PDB file with biopandas
+    

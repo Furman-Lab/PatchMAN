@@ -1,15 +1,14 @@
 Bootstrap: docker
 From: python:3.5.6
 
-################################################
-#           Container for PyRosetta            #
-#                                              #
-# This definition file is used for creating an #
-# image for PyRosetta, together with all the   #
-# python scripts used by PatchMAN.             #
-#                                              #
-#    Created by Furman Lab at HUJI, 2022.      #
-###############################################
+###########################################################
+#            Container for python and PyRosetta           #
+#                                                         #
+# This definition file is used for creating an image for  #
+# PyRosetta, together with all the python scripts used.   #
+#                                                         #
+#           Created by Furman Lab at HUJI, 2022.          #
+###########################################################
 
 %setup
 

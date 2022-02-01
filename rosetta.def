@@ -1,25 +1,24 @@
 Bootstrap: docker
 From: python:3.5.6
 
-##############################################
-#       Container for Rosetta with MPI       #
-#                                            #
-# This definition file is used for creating  #
-# an image for Rosetta, with MPI support.    #
-# Files for setting up both are downloaded   #
-# by download_data_and_software.sh. The MPI  #
-# version needs to match with the host MPI's #
-#                                            #
-#    Created by Furman Lab at HUJI, 2022.    #
-##############################################
+###########################################################
+#            Container for Rosetta with MPI               #
+#                                                         #
+# This definition file is used for creating an image for  #
+# Rosetta, with MPI support. Files for setting up both    #
+# are downloaded by download_data_and_software.sh. The    #
+# MPI version needs to match with the host MPI's          #
+#                                                         #
+#         Created by Furman Lab at HUJI, 2022.            #
+###########################################################
 
 
 %setup
-	# Create directories for extracting the contents of the archive files
+	# Create directories for extracting the contents of the archives
 	mkdir $SINGULARITY_ROOTFS/openmpi
 	mkdir $SINGULARITY_ROOTFS/rosetta
 
-	# The directories for openmpi.tar.bz2 and rosetta.tar.gz might need to be changed according how Singularity images are built on the host system
+	# Extract archives
 	tar -xjf openmpi.tar.bz2 -C $SINGULARITY_ROOTFS/openmpi --strip-components=1
 	tar -xzf rosetta.tar.gz -C $SINGULARITY_ROOTFS/rosetta --strip-components=1
 
@@ -43,7 +42,7 @@ From: python:3.5.6
 	make install
 	cd ..
 	rm -rf openmpi/
-	
+
 
 	##### Rosetta #####
 	# Compile Rosetta

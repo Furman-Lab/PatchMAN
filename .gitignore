@@ -11,3 +11,4 @@ try.def
 test/*
 !test/1sshA.pdb
 bin/*.pl
+.idea

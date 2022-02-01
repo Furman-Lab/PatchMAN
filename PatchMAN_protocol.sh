@@ -1,18 +1,18 @@
 #!/bin/bash
 
-################################################
-#           The PatchMAN protocol              #
-#                                              #
-# The protocol splits the surface into patches #
-# then searches PDB30 with these to find       #
-# peptide fragments that can complement them.  #
-# These are extracted and used as templates    #
-# for docking the peptide.                     #
-# This script sends jobs asynchronously        #
-# via Slurm.                                   #
-#                                              #
-#     Created by Furman Lab at HUJI, 2022.     #
-################################################
+
+###########################################################
+#                  The PatchMAN protocol                  #
+#                                                         #
+# The protocol splits the surface into patches, then      #
+# searches PDB30 with these to find peptide fragments     #
+# that can complement them. These are extracted and used  #
+# as templates for docking the peptide.                   #
+# This script sends jobs asynchronously via Slurm, using  #
+# Singularity containers.                                 #
+#                                                         #
+#           Created by Furman Lab at HUJI, 2022.          #
+###########################################################
 
 
 die() {
