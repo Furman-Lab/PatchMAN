@@ -16,26 +16,23 @@ All the softwares and data can be downloaded with `download_data_and_software.sh
 
 ---  
 
-### Singularity installation  
+### Installation  
+
+
+#### With Singularity containers
 
 Master search, extraction of peptides based on the structural motif search results and Rosetta FlexPepDock runs are best to be run distributed, with MPI. The protocol script is setup to use OpenMPI with Slurm,
 
 The provided Singularity files need to be build with the following commands, after downloading the needed files with `download_data_and_software.sh`:
 ```
-singularity build rosetta.sif rosetta.def
+singularity build rosetta.sif rosetta.def # compiling Rosetta can take significant amount of time
 singularity build python.sif python.def
-singularity build master.sif master.def
+singularity build master.sif master.def # this also takes care of patching PatchMAN
 ```
 
-After builds are complete (Rosetta and PyRosetta can take some time) running PatchMAN with 
-`bash PatchMAN_protocol.sh <arguments> RECEPTOR PEPTIDE`
-where RECEPTOR is a PDB file and PEPTIDE is the peptide sequence to be docked. The peptide can contain post-translational modifications, denoted by Rosetta standards, e.g. [SER:phosphorylated]. The available PTMs can be listed with `singularity run rosetta.sif ls /rosetta/rosetta_src_2019.14.60699_bundle/main/database/chemical/residue_type_sets/fa_standard/patches`
+#### Without containers
 
----  
-
-### Command line installation
-
-#### Software prequisites
+##### Software prequisites
 
 To run PatchMAN the following prequisites should be downloaded and installed:
 
@@ -45,7 +42,7 @@ To run PatchMAN the following prequisites should be downloaded and installed:
 4. [Rosetta](https://www.rosettacommons.org/software/license-and-download)
 
 
-#### Installation
+##### Installation
 
 - Download and install [PyRosetta](https://www.pyrosetta.org/downloads/legacy-pyrosetta3-download) and [Rosetta](https://www.rosettacommons.org/software/license-and-download)
 - Set up MASTER
@@ -64,6 +61,46 @@ Go to line 107 and add the following code (before ```return os;```):
   - Follow the instruction in the INSTALL file to compile MASTER 
 - Download [MASTER database](https://grigoryanlab.org/master/#database) for template search
 
-#### Running PatchMAN
+---
 
-A PatchMAN demo run can be found in the *example_run* folder
+### Quick start
+
+After builds are complete, a test run of PatchMAN can be performed on the 1ssh.pdb in the `test/` directory. Turning off receptor backbone minimization decreases runtime: 
+
+```
+cd test/
+../PatchMAN_protocol.sh -m false 1ssh.pdb EGPPPAMPARPT
+```
+
+PatchMAN can be run with: 
+
+```bash PatchMAN_protocol.sh <arguments> RECEPTOR PEPTIDE```  
+
+where RECEPTOR is a PDB file and PEPTIDE is the peptide sequence to be docked.   
+The peptide can contain post-translational modifications, denoted by Rosetta standards, e.g. `[SER:phosphorylated]`. The available PTMs can be listed with   
+
+```singularity run rosetta.sif ls /rosetta/main/database/chemical/residue_type_sets/fa_standard/patches```  
+
+#### Parameters
+```
+-m minimize receptor backbone (true or false; default: true)
+-t number of refinement runs for FlexPepDock (default: 1)
+-s masked residues as a PDB structure (default: None) # Note: this feature is experimental
+
+-w working directory (default: current directory)
+-o output directory for the ligands (default: working directory)
+-g log file (Default is stdout)
+-e error log file (Default is stderr)
+-n job name
+-v verbose (default: false)
+```
+
+---
+### Citing PatchMAN
+
+PatchMAN docking: Modeling peptide-protein interactions in the context of the receptor surface
+Alisa Khramushin, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman
+bioRxiv 2021.09.02.458699; doi: https://doi.org/10.1101/2021.09.02.458699
+
+
+
