@@ -3,6 +3,7 @@
 #SBATCH --time=93:00:00
 #SBATCH --mem=1600m
 #SBATCH --nice=8000
+#SBATCH --module="singularity"
 
 matches=($(ls *matches))
 
@@ -13,5 +14,3 @@ motif=${motifs["$SLURM_ARRAY_TASK_ID"]}
 echo $1 > pepfile
 
 ${PYTHON_SINGULARITY}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
-
-#echo 'TEST'

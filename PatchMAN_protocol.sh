@@ -1,25 +1,39 @@
 #!/bin/bash
-# The PatchMAN protocol.
-# It sends jobs asynchronously via Slurm.
+
+################################################
+#           The PatchMAN protocol              #
+#                                              #
+# The protocol splits the surface into patches #
+# then searches PDB30 with these to find       #
+# peptide fragments that can complement them.  #
+# These are extracted and used as templates    #
+# for docking the peptide.                     #
+# This script sends jobs asynchronously        #
+# via Slurm.                                   #
+#                                              #
+#     Created by Furman Lab at HUJI, 2022.     #
+################################################
+
 
 die() {
 	echo >&2 -e "\nERROR: $@\n"
 	exit 1
 }
 
-export PROTOCOL_ROOT=$(dirname $(realpath $BASH_SOURCE))
+# Set protocol root based on the path of this script.
+export PROTOCOL_ROOT=$(dirname $(realpath ${BASH_SOURCE}))
 export BIN_DIR=${PROTOCOL_ROOT}/bin
-export PATH=.:${BIN_DIR}
+export PATH=.:${BIN_DIR}:${PATH}
+export PYTHONPATH="" # messes up python packages inside the container otherwise
 
-[ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: $PROTOCOL_ROOT"
+[ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: ${PROTOCOL_ROOT}"
 
 # If you do not run a singularity container change these paths accordingly
-export PYTHON_SINGULARITY="singularity exec python.sif python /python_scripts/" # change this to python
-export ROSETTA_SINGULARITY='singularity exec rosetta.sif /rosetta//rosetta_src_2019.14.60699_bundle/' # change this to Rosetta's path
-export MASTER='singularity run --bind $PROTOCOL_ROOT:$PROTOCOL_ROOT master.sif /master-v1.6/bin/' # change this to path to Master's path
-# export PERL='singularity run master.sif perl'
-export ROSETTA_TOOLS="$ROSETTA_SINGULARITY/tools/"
-export ROSETTA_BIN='$ROSETTA_SINGULARITY/main/source/bin/' ### TODO: modify with path
+export PYTHON_SINGULARITY="singularity exec ${PROTOCOL_ROOT}/python.sif python /python_scripts/" # change this to python
+export ROSETTA_SINGULARITY="singularity exec ${PROTOCOL_ROOT}/rosetta.sif /rosetta/" # change this to Rosetta's path
+export MASTER_SINGULARITY="singularity run --bind ${PROTOCOL_ROOT}:${PROTOCOL_ROOT} ${PROTOCOL_ROOT}/master.sif /master-v1.6/bin/" # change this to path to Master's path
+export ROSETTA_TOOLS="${ROSETTA_SINGULARITY}/tools/"
+export ROSETTA_BIN="${ROSETTA_SINGULARITY}/main/source/bin/"
 
 # Defaults
 work_dir=$(pwd)
@@ -44,8 +58,8 @@ usage() {
 		-o output directory for the ligands (default: working directory)
 		-g log file (Default is stdout)
 		-e error log file (Default is stderr)
-		-v verbose (default: false)
 		-n job name
+		-v verbose (default: false)
 	USAGE
 }
 
@@ -91,35 +105,34 @@ shift "$((OPTIND-1))"
 
 [ -r "$1" ] || die "Receptor is not a readable file: $1"
 pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # remove PTMs for validation of the rest of the peptide
-[[ "$pep_sequence_to_validate" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2" # modified for PTM
+[[ "${pep_sequence_to_validate}" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2" # modified for PTM
 
 # Creating a directory for the job and copying inputs to it
 receptor=$(readlink -f $1)
-pep_sequence=$2
+pep_sequence="$2"
 
 pushd $work_dir > /dev/null
 
+# Prepare receptor
 cp $receptor .
+receptor=$(readlink -f $(basename "$receptor"))
+receptor_base=$(basename "$receptor")
 
-# Do not throw error if no mask was provided
-if  [[ -f $mask ]]
+# Prepare mask if provided
+if  [[ -f "$mask" ]]
 then
-	cp $mask .
+	cp "$mask" .
+	mask=$(readlink -f $(basename "$mask"))
 fi
 
-receptor=$(readlink -f $(basename $receptor))
-receptor_base=$(basename $receptor)
-mask=$(readlink -f $(basename $mask))
-
 # Step 1: Split to motifs
-python ${BIN_DIR}/split_to_motifs.py "$receptor" "$mask"
-
+${PYTHON_SINGULARITY}/split_to_motifs.py "$receptor" "$mask"
 clean_rec=`echo ${receptor_base::-4}`'.clean.pdb'
 rec_name=`echo ${receptor_base::-4}`
 ppkrec=`echo ${receptor_base::-4}'.clean.ppk.pdb'`
 echo "DEBUG| " $clean_rec $rec_name $ppkrec
 ls ???'_'$rec_name'.pdb' > motif_list
-$MASTER/createPDS --type query --pdbList motif_list
+${MASTER_SINGULARITY}/createPDS --type query --pdbList motif_list
 
 n_searches=$(wc -l motif_list | gawk '{print $1}')
 

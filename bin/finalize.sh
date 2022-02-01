@@ -7,7 +7,7 @@ tail -$((x+5)) clog | head -${x} | grep _0001 | awk  '{for(i=1;i<=NF;i++){if ($i
 for i in `awk '{print $1}' cluster_list`;
   do sed 1d ../score.sc | head -1 > tmp1;
     grep $i ../score.sc >> tmp1;
-    printScoreFile_byHeader.pl tmp1 I_sc reweighted_sc | tail -1 | awk '{print $2,$3}' >>pdb_list_sc;
+    ${PYTHON_SINGULARITY}/printScoreFile_byHeader.py tmp1 I_sc reweighted_sc | tail -1 | awk '{print $2,$3}' >>pdb_list_sc;
   done;
 paste cluster_list pdb_list_sc >cluster_list_sc;
 echo "Decoy_ID Cluster_no Member_ID I_sc reweighted_sc" >cluster_list_I_sc_sorted;

@@ -3,10 +3,10 @@
 #SBATCH --mem=2000m
 
 # sort by reweighted_sc
-${BIN_DIR}/printScoreFile_byHeader.pl score.sc reweighted_sc I_sc rmsBB rmsBB_if description | gawk '{print $2, $3, $4, $5, $6}' > short.sc
+${PYTHON_SINGULARITY}/printScoreFile_byHeader.py score.sc reweighted_sc I_sc rmsBB rmsBB_if description | gawk '{print $2, $3, $4, $5, $6}' > short.sc
 sort -nk1 short.sc > sorted.sc
 
-# filter possible disulf bridges
+# Filter possible disulf bridges
 for a in $(cat sorted.sc | gawk '{print $NF}'); do score=$(grep $a sorted.sc | gawk '{print $1}' | cut -d '.' -f 1);
    if (( $score < -1000000 ));
        then echo $a >> tmp;
@@ -21,9 +21,9 @@ fi
 
 # tale top 1 percent structures
 nlines=`wc -l sorted.sc | gawk '{print $1}'`
-head -$(($nlines/100)) sorted.sc | gawk '{print $NF}'> top1percent # needs to be more for masked structures
+head -$(($nlines/100)) sorted.sc | gawk '{print $NF}'> top1percent
 
-# run clustering
+# Run clustering
 mkdir clustering
 cd clustering
 pdb=`ls ../???_????_*_*_0001.pdb | head -1`

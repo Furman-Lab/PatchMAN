@@ -1,19 +1,30 @@
 Bootstrap: docker
 From: debian
 
+##############################################
+#            Container for MASTER            #
+#                                            #
+# This definition file is used for creating  #
+# an image for MASTER, with its output       #
+# modified for running PatchMAN.             #
+#                                            #
+#    Created by Furman Lab at HUJI, 2022.    #
+##############################################
+
 %setup
 
 %post
+	# Install system packages that are needed for building Rosetta
 	apt -y update
 	apt -y install curl make build-essential
-	
+
 	# Download MASTER
 	curl -f -o  master-v1.6.tar.gz https://grigoryanlab.org/master/master-v1.6.tar.gz
 	tar xvzf master-v1.6.tar.gz
 	rm master-v1.6.tar.gz
 	cp master-v1.6/src/Match.cpp master-v1.6/src/Match_old.cpp
 
-	# patch	MASTER
+	# Patch	MASTER to provide the translation rotation matrix as an output
 	head -106 master-v1.6/src/Match_old.cpp > master-v1.6/src/Match.cpp
 	echo "double **R=((Match*)(&m))->getRotation();"  >> master-v1.6/src/Match.cpp
 	echo "double *T=((Match*)(&m))->getTranslation();"  >> master-v1.6/src/Match.cpp
@@ -31,6 +42,3 @@ From: debian
 	# Compile MASTER
 	cd master-v1.6/
 	make all
-
-%files
-	db_list_30nonred master-v1.6/

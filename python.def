@@ -1,24 +1,34 @@
 Bootstrap: docker
 From: python:3.5.6
 
+################################################
+#           Container for PyRosetta            #
+#                                              #
+# This definition file is used for creating an #
+# image for PyRosetta, together with all the   #
+# python scripts used by PatchMAN.             #
+#                                              #
+#    Created by Furman Lab at HUJI, 2022.      #
+###############################################
+
 %setup
 
 %files
-	bin/* python_scripts
-	requirements.txt .
-	.env env
-	pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl  . 
+	/vol/ek/Home/jvarga/works/PatchMAN-forServer/bin/* python_scripts
+	/vol/ek/Home/jvarga/works/PatchMAN-forServer/requirements.txt .
+	/vol/ek/Home/jvarga/works/PatchMAN-forServer/pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl  .
 
 %post
-	apt update 
+	# Install system packages that are needed for installing python packages
+	apt update
 	apt install -y --no-install-recommends python3-pip gfortran python3-dev
 	apt -y clean
 	rm -rf rm -rf /var/lib/apt/lists/*
-	
-	# install 
+
+	# Install python packages
 	pip install --upgrade pip
 	pip install -r requirements.txt
 
 	# Install PyRosetta
-	pip install pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl 
-	rm pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl 
+	pip install pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl
+	rm pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl

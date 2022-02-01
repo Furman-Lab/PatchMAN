@@ -7,3 +7,7 @@ masterDB/
 db_list_30nonred
 Dockerfile
 bin/__pycache__/
+try.def
+test/*
+!test/1sshA.pdb
+bin/*.pl
