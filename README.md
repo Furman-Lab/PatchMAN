@@ -10,16 +10,16 @@ PatchMAN (Patch-Motif AligNments) maps the receptor surface for local structural
 
 The protocol consists of 4 consecutive steps: (1) Definition of surface patches on the receptor; (2) Identification of structural motif matches in protein structures, and an interacting fragment that can be used as template for the bound peptide; (3) Generation of the peptide-protein complex template structure, by superimposing the interacting peptide back onto the receptor, and (4) Replacing side chains according to the peptide sequence (threading), refinement and scoring of the model.
 
----  
+---
 
-### Installation  
+### Installation
 
 #### Downloading software and data
 1. Obtain [Rosetta](https://www.rosettacommons.org/software/license-and-download) and [PyRosetta](https://www.pyrosetta.org/downloads/legacy-pyrosetta3-download) licenses.
 2. Register for [MASTER v1.6](https://grigoryanlab.org/index.php?sec=get&soft=MASTER) and obtain download URL.
 3. Create a .env file to contain login information: ```cp sample.env .env```
 4. Edit `.env` file with the Rosetta and PyRosetta usernames and passwords and MASTER's URL.
-5. Run `bash download_data_and_software.sh` that will take care of downloading all the required files and extracting the database for MASTER search into the `masterDB` directory. Downloading Rosetta, PyRosetta and the MASTER database can take significant amount of time, depending on your network. The script downloads the versions of the softwares that are used in the paper.
+5. Run `bash download_data_and_software.sh` that will take care of downloading all the required files and extracting the database for MASTER search into the `databases/masterDB` and `databases/master_clean` directory. Downloading Rosetta, PyRosetta and the MASTER database can take significant amount of time, depending on your network. The script downloads the versions of the softwares that are used in the paper.
 
 :exclamation: Note: Running MPI in Singularity containers require that the version of the hose and container MPI match. The script automatically detects the version of host OpenMPI (required to speed up FlexPepDock runs) and downloads it. If the container is not built on the host computer that will run it, the variable OMPI_VERSION might need to be manually modified.
 
@@ -39,7 +39,7 @@ sudo singularity build master.sif master.def # this also takes care of patching 
 - The required python packages can be installed with `pip install -r requirements.txt`
 - Install [PyRosetta](https://www.pyrosetta.org/downloads/legacy-pyrosetta3-download) and [Rosetta](https://www.rosettacommons.org/software/license-and-download) from the downloaded rosetta.tar.gz and wheel files.
 - Set up MASTER
-  - Download the source code of [MASTER v1.6](https://grigoryanlab.org/index.php?sec=get&soft=MASTER). The source code needs a slight modification for running PatchMAN. This can be done in 2 different ways:
+  - The downloaded source code needs a slight modification for running PatchMAN. This can be done in 2 different ways:
     -  Programatically: use the patch file in the `bin/` directory and issue:
 
         ```patch -l path_to_master/src/Match.cpp bin/master.patch```
@@ -64,12 +64,12 @@ sudo singularity build master.sif master.def # this also takes care of patching 
 
 PatchMAN can be run with:
 
-```bash PatchMAN_protocol.sh <arguments> RECEPTOR PEPTIDE```  
+```bash PatchMAN_protocol.sh <arguments> RECEPTOR PEPTIDE```
 
-where RECEPTOR is a PDB file and PEPTIDE is the peptide sequence to be docked.   
-The peptide can contain post-translational modifications, denoted by Rosetta standards, e.g. `[SER:phosphorylated]`. The available PTMs can be listed with   
+where RECEPTOR is a PDB file and PEPTIDE is the peptide sequence to be docked.
+The peptide can contain post-translational modifications, denoted by Rosetta standards, e.g. `[SER:phosphorylated]`. The available PTMs can be listed with
 
-```singularity run rosetta.sif ls /rosetta/main/database/chemical/residue_type_sets/fa_standard/patches```  
+```singularity run rosetta.sif ls /rosetta/main/database/chemical/residue_type_sets/fa_standard/patches```
 
 :exclamation: Note that the protocol script is set up to use Singularity containers. If you compiled Rosetta, PyRosetta or MASTER without containers, you will need to edit the `$ROSETTA`, `$PYTHON` and `$MASTER` environmental variables accordingly.
 
@@ -101,6 +101,20 @@ cd test/
 ---
 ### Citing PatchMAN
 
-**PatchMAN docking: Modeling peptide-protein interactions in the context of the receptor surface**  
-Alisa Khramushin, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman  
-*bioRxiv 2021.09.02.458699; doi: https://doi.org/10.1101/2021.09.02.458699*  
+**PatchMAN docking: Modeling peptide-protein interactions in the context of the receptor surface**
+Alisa Khramushin, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman
+*bioRxiv 2021.09.02.458699; doi:https://doi.org/10.1101/2021.09.02.458699*
+
+Please also cite the following papers:
+
+**Rapid Search for Tertiary Fragments Reveals Protein Sequence-Structure Relationships**
+Zhou J., Grigoryan G.
+*Protein Science, 24(4): 508-524, 2015.*
+
+**Sub-angstrom modeling of complexes between flexible peptides and globular proteins**
+Raveh B, London N, Schueler-Furman O. (2010).
+*Proteins 78:2029-40.*
+
+**PyRosetta: a script-based interface for implementing molecular modeling algorithms using Rosetta**
+Chaudhury S, Lyskov S, Gray JJ.
+*Bioinformatics. 2010;26(5):689-691. doi:10.1093/bioinformatics/btq007*
