@@ -7,7 +7,7 @@ import re
 
 import time
 from os import system
-from os import path
+from os import path, environ
 import argparse
 
 import pyrosetta_utils as utils
@@ -23,7 +23,7 @@ CLASH_DIST = 2
 
 OVERALL_MATCHES = 100
 
-DB_PATH = '/vol/ek/share/databases/master_clean/'
+DB_PATH = os.environ['DB_PATH']
 
 """Receives a list of matches for *1* motif, the receptor pdb file and the peptide sequence.
 Create initial complexes: extract peptides from proteins with motifs similar to the query, thread the pepseq with fixbb.
@@ -58,11 +58,6 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
         indices = [r + 1 for m_stretch in motif_stretches for r in m_stretch]  # the numbering in master output is from 0
 
         match_to_report = motif_pdb + ': ' + ','.join([str(i) for i in indices])
-        #
-        # if not path.isfile(motif_pdb.upper() + '.clean.pdb'):
-        #     pdb_pose = toolbox.pose_from_rcsb(motif_pdb)
-        # else:
-        #     pdb_pose = pose_from_pdb(motif_pdb.upper() + '.clean.pdb') # all pdbs are downloaded in the previous step (download_all_pdbs.sh)
 
         if not path.isfile(DB_PATH + motif_pdb.upper() + '.clean.pdb'):
             pdb_pose = toolbox.pose_from_rcsb(motif_pdb)

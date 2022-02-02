@@ -20,20 +20,25 @@ die() {
 	exit 1
 }
 
+###########################################################
 # Set protocol root based on the path of this script.
 export PROTOCOL_ROOT=$(dirname $(realpath ${BASH_SOURCE}))
 export BIN_DIR=${PROTOCOL_ROOT}/bin
 export PATH=.:${BIN_DIR}:${PATH}
 export PYTHONPATH="" # messes up python packages inside the container otherwise
+export DB_PATH="${PROTOCOL_ROOT}/databases/master_clean"
 
 [ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: ${PROTOCOL_ROOT}"
+###########################################################
 
-# If you do not run a singularity container change these paths accordingly
-export PYTHON="singularity exec ${PROTOCOL_ROOT}/python.sif python /python_scripts/" # change this to python
-export ROSETTA="singularity exec ${PROTOCOL_ROOT}/rosetta.sif /rosetta/" # change this to Rosetta's path
-export MASTER="singularity run --bind ${PROTOCOL_ROOT}:${PROTOCOL_ROOT} ${PROTOCOL_ROOT}/master.sif /master-v1.6/bin/" # change this to path to MASTER's path
+###########################################################
+# CHANGE EXECUTABLE'S PATH HERE IF NOT RUNNING CONTAINERS
+export PYTHON="singularity exec ${PROTOCOL_ROOT}/containers/python.sif python /python_scripts/" # change this to python
+export ROSETTA="singularity exec ${PROTOCOL_ROOT}/containers/rosetta.sif /rosetta/" # change this to Rosetta's path
+export MASTER="singularity run --bind ${PROTOCOL_ROOT}:${PROTOCOL_ROOT} ${PROTOCOL_ROOT}/containers/master.sif /master/bin/" # change this to path to MASTER's path
 export ROSETTA_TOOLS="${ROSETTA}/tools/"
 export ROSETTA_BIN="${ROSETTA}/main/source/bin/"
+###########################################################
 
 # Defaults
 work_dir=$(pwd)
@@ -107,6 +112,8 @@ shift "$((OPTIND-1))"
 pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # remove PTMs for validation of the rest of the peptide
 [[ "${pep_sequence_to_validate}" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2" # modified for PTM
 
+
+############### PREPARE JOB ###############
 # Creating a directory for the job and copying inputs to it
 receptor=$(readlink -f $1)
 pep_sequence="$2"
@@ -118,6 +125,10 @@ cp $receptor .
 receptor=$(readlink -f $(basename "$receptor"))
 receptor_base=$(basename "$receptor")
 
+# Rename all receptor chains to one, otherwise the protocol crashes
+chain_id=$(grep -m 1 '^ATOM' $receptor | cut -c 22)
+sed -Ei "s/^(ATOM.{17})[A-Z]/\1${chain_id}/" $receptor
+
 # Prepare mask if provided
 if  [[ -f "$mask" ]]
 then
@@ -125,6 +136,8 @@ then
 	mask=$(readlink -f $(basename "$mask"))
 fi
 
+
+################ RUN JOB ################
 # Step 1: Split to motifs
 ${PYTHON}/split_to_motifs.py "$receptor" "$mask"
 clean_rec=`echo ${receptor_base::-4}`'.clean.pdb'
