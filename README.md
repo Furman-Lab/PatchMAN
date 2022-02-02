@@ -101,20 +101,20 @@ cd test/
 ---
 ### Citing PatchMAN
 
-**PatchMAN docking: Modeling peptide-protein interactions in the context of the receptor surface**
-Alisa Khramushin, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman
-*bioRxiv 2021.09.02.458699; doi:https://doi.org/10.1101/2021.09.02.458699*
+**PatchMAN docking: Modeling peptide-protein interactions in the context of the receptor surface** 
+Alisa Khramushin, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman  
+*bioRxiv 2021.09.02.458699; doi:https://doi.org/10.1101/2021.09.02.458699*  
 
 Please also cite the following papers:
 
-**Rapid Search for Tertiary Fragments Reveals Protein Sequence-Structure Relationships**
-Zhou J., Grigoryan G.
-*Protein Science, 24(4): 508-524, 2015.*
+**Rapid Search for Tertiary Fragments Reveals Protein Sequence-Structure Relationships**  
+Zhou J., Grigoryan G.  
+*Protein Science, 24(4): 508-524, 2015.*  
 
-**Sub-angstrom modeling of complexes between flexible peptides and globular proteins**
-Raveh B, London N, Schueler-Furman O. (2010).
-*Proteins 78:2029-40.*
+**Sub-angstrom modeling of complexes between flexible peptides and globular proteins**  
+Raveh B, London N, Schueler-Furman O. (2010).  
+*Proteins 78:2029-40.*  
 
-**PyRosetta: a script-based interface for implementing molecular modeling algorithms using Rosetta**
-Chaudhury S, Lyskov S, Gray JJ.
-*Bioinformatics. 2010;26(5):689-691. doi:10.1093/bioinformatics/btq007*
+**PyRosetta: a script-based interface for implementing molecular modeling algorithms using Rosetta**  
+Chaudhury S, Lyskov S, Gray JJ.  
+*Bioinformatics. 2010;26(5):689-691. doi:10.1093/bioinformatics/btq007*  
