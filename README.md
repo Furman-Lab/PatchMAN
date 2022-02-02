@@ -1,6 +1,6 @@
 ## PatchMAN protocol for blind peptide-protein docking
 
-<img align="left" width="500" height="144" src="https://raw.githubusercontent.com/Alisa-Kh/PatchMAN/master/img/PatchMAN_small.PNG"> 
+<img align="left" width="500" height="144" src="https://raw.githubusercontent.com/Alisa-Kh/PatchMAN/master/img/PatchMAN_small.PNG">
 
 <br /><br /><br /><br /><br />
 
@@ -16,9 +16,10 @@ The protocol consists of 4 consecutive steps: (1) Definition of surface patches 
 
 #### Downloading software and data
 1. Obtain [Rosetta](https://www.rosettacommons.org/software/license-and-download) and [PyRosetta](https://www.pyrosetta.org/downloads/legacy-pyrosetta3-download) licenses.
-2. Create a .env file to contain login information: ```cp sample.env .env```
-3. Edit `.env` file with the Rosetta and PyRosetta usernames and passwords.
-4. Run `bash download_data_and_software.sh` that will take care of downloading all the required files and extracting the database for MASTER search into the `masterDB` directory. Downloading Rosetta, PyRosetta and the MASTER database can take significant amount of time, depending on your network. The script downloads the versions of the softwares that are used in the paper.
+2. Register for [MASTER v1.6](https://grigoryanlab.org/index.php?sec=get&soft=MASTER) and obtain download URL.
+3. Create a .env file to contain login information: ```cp sample.env .env```
+4. Edit `.env` file with the Rosetta and PyRosetta usernames and passwords and MASTER's URL.
+5. Run `bash download_data_and_software.sh` that will take care of downloading all the required files and extracting the database for MASTER search into the `masterDB` directory. Downloading Rosetta, PyRosetta and the MASTER database can take significant amount of time, depending on your network. The script downloads the versions of the softwares that are used in the paper.
 
 :exclamation: Note: Running MPI in Singularity containers require that the version of the hose and container MPI match. The script automatically detects the version of host OpenMPI (required to speed up FlexPepDock runs) and downloads it. If the container is not built on the host computer that will run it, the variable OMPI_VERSION might need to be manually modified.
 
@@ -40,11 +41,11 @@ sudo singularity build master.sif master.def # this also takes care of patching 
 - Set up MASTER
   - Download the source code of [MASTER v1.6](https://grigoryanlab.org/index.php?sec=get&soft=MASTER). The source code needs a slight modification for running PatchMAN. This can be done in 2 different ways:
     -  Programatically: use the patch file in the `bin/` directory and issue:
-    
+
         ```patch -l path_to_master/src/Match.cpp bin/master.patch```
-    
+
     -  Manually: Go to line 107 in the `Match.cpp` file and add the following code (before ```return os;```):
-    
+
         ```
         double *T=((Match*)(&m))->getTranslation();
         double **R=((Match*)(&m))->getRotation();
@@ -54,14 +55,14 @@ sudo singularity build master.sif master.def # this also takes care of patching 
                      << R[1][0] << " " << R[1][1] << " " << R[1][2] << " "
                      << R[2][0] << " " << R[2][1] << " " << R[2][2] << " ===" ;
         ```
-    
-  - Follow the instruction in the INSTALL file to compile MASTER 
+
+  - Follow the instruction in the INSTALL file to compile MASTER
 
 ---
 
 ### Quick start
 
-PatchMAN can be run with: 
+PatchMAN can be run with:
 
 ```bash PatchMAN_protocol.sh <arguments> RECEPTOR PEPTIDE```  
 
@@ -76,7 +77,7 @@ The peptide can contain post-translational modifications, denoted by Rosetta sta
 
 
 #### Test run
-A test run of PatchMAN can be performed on the 1ssh.pdb in the `test/` directory. Turning off receptor backbone minimization for testing purposes decreases runtime: 
+A test run of PatchMAN can be performed on the 1ssh.pdb in the `test/` directory. Turning off receptor backbone minimization for testing purposes decreases runtime:
 
 ```
 cd test/
