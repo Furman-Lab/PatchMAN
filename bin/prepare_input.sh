@@ -4,4 +4,4 @@
 #SBATCH --mem=1G
 #SBATCH --module="singularity"
 
-${PYTHON}/prepack_receptor.py $1
+${PYTHON} ${PROTOCOL_ROOT}/bin/prepack_receptor.py $1

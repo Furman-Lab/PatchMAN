@@ -3,7 +3,7 @@
 #SBATCH --mem=2000m
 
 # sort by reweighted_sc
-${PYTHON}/printScoreFile_byHeader.py score.sc reweighted_sc I_sc rmsBB rmsBB_if description | gawk '{print $2, $3, $4, $5, $6}' > short.sc
+${PYTHON} ${PROTOCOL_ROOT}/bin/printScoreFile_byHeader.py score.sc reweighted_sc I_sc rmsBB rmsBB_if description | gawk '{print $2, $3, $4, $5, $6}' > short.sc
 sort -nk1 short.sc > sorted.sc
 
 # Filter possible disulf bridges

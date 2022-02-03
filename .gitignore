@@ -13,3 +13,4 @@ test/*
 bin/*.pl
 .idea
 try.def
+venv_PatchmanProtocol/

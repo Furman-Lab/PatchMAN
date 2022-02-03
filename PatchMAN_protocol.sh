@@ -20,22 +20,29 @@ die() {
 	exit 1
 }
 
+source .env
+
 ###########################################################
 # Set protocol root based on the path of this script.
 export PROTOCOL_ROOT=$(dirname $(realpath ${BASH_SOURCE}))
 export BIN_DIR=${PROTOCOL_ROOT}/bin
 export PATH=.:${BIN_DIR}:${PATH}
 export PYTHONPATH="" # messes up python packages inside the container otherwise
-export DB_PATH="${PROTOCOL_ROOT}/databases/master_clean"
+export DB_PATH="${PROTOCOL_ROOT}/databases/master_clean" # !!!
 
 [ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: ${PROTOCOL_ROOT}"
 ###########################################################
 
-###########################################################
-# CHANGE EXECUTABLE'S PATH HERE IF NOT RUNNING CONTAINERS
-export PYTHON="singularity exec ${PROTOCOL_ROOT}/containers/python.sif python /python_scripts/" # change this to python
-export ROSETTA="singularity exec ${PROTOCOL_ROOT}/containers/rosetta.sif /rosetta/" # change this to Rosetta's path
-export MASTER="singularity run --bind ${PROTOCOL_ROOT}:${PROTOCOL_ROOT} ${PROTOCOL_ROOT}/containers/master.sif /master/bin/" # change this to path to MASTER's path
+if [[ "$VIRTUAL_ENV" == '' ]]
+then
+	export PYTHON=$(echo $PYTHON | sed "s/PROTOCOL_ROOT/${PROTOCOL_ROOT}/g")
+else
+	. $VIRTUAL_ENV/bin/activate || die "No virtual environment detected. Please install it first by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
+	export PYTHON="python3 "
+fi
+
+export ROSETTA=$(echo $ROSETTA | sed "s/PROTOCOL_ROOT/${PROTOCOL_ROOT}/g")
+export MASTER=$(echo $MASTER | sed "s/PROTOCOL_ROOT/${PROTOCOL_ROOT}/g")
 export ROSETTA_TOOLS="${ROSETTA}/tools/"
 export ROSETTA_BIN="${ROSETTA}/main/source/bin/"
 ###########################################################
@@ -139,7 +146,7 @@ fi
 
 ################ RUN JOB ################
 # Step 1: Split to motifs
-${PYTHON}/split_to_motifs.py "$receptor" "$mask"
+${PYTHON} ${PROTOCOL_ROOT}/bin/split_to_motifs.py "$receptor" "$mask"
 clean_rec=`echo ${receptor_base::-4}`'.clean.pdb'
 rec_name=`echo ${receptor_base::-4}`
 ppkrec=`echo ${receptor_base::-4}'.clean.ppk.pdb'`
