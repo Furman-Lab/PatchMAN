@@ -39,7 +39,7 @@ work_dir=$(pwd)
 job_name="PatchMAN_JOB"
 cluster_radius="2.0"
 min_rec_bb="true"
-
+master_cutoff="1.5"
 
 usage() {
 	cat <<-USAGE
@@ -59,7 +59,7 @@ usage() {
 }
 
 
-while getopts :hvw:g:t:f:j:s:n:m: opt; do
+while getopts :hvw:g:c:t:f:j:s:n:m: opt; do
 	case $opt in
 		h)
 			usage
@@ -68,7 +68,10 @@ while getopts :hvw:g:t:f:j:s:n:m: opt; do
 		g)
 			logs_dir=$OPTARG
 			;;
-		w)
+    c)
+      master_cutoff=$OPTARG
+      ;;
+    w)
 			work_dir=$OPTARG
 			;;
 		t)
@@ -124,7 +127,7 @@ $MASTER/createPDS --type query --pdbList motif_list
 n_searches=$(wc -l motif_list | gawk '{print $1}')
 
 # Step 2: Run MASTER
-run_master_jid=$(sbatch --array=0-"$n_searches"%50 run_master.sh | awk '{print $NF}')
+run_master_jid=$(sbatch --array=0-"$n_searches"%50 run_master.sh $master_cutoff | awk '{print $NF}')
 
 ## Step2.5: Download all pdbs and prepack receptor
 #prep_input_jid=$(sbatch --dependency=afterany:"${run_master_jid}" --job-name=prep_input --get-user-env --time=90:00:00\
