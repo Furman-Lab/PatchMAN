@@ -108,7 +108,6 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
                                                 pep_template_seq, pepseq, stretch,rmsd)  # print the information about the motif and patch + alignments of the motifs and peps
                         with open(log_name, 'a') as log:
                             log.write(complex_inf)
-                        break
                     system('rm -f {}'.format(complex_name))
                 else:
                     single_motif_complexes += 1
