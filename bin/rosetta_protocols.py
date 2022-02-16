@@ -97,7 +97,7 @@ def fixbb_design(lig_selection, filename, pepseq, scrfxn):
                 else:
                     line = '{orig_aa} {chain} NATRO \n'.format(orig_aa=lig_nums[i],
                                                                chain=complex_pose.pdb_info().chain(int(lig_nums[i])))
-                resfile.write(line)
+            resfile.write(line)
 
     # Setting up packer based on the mutated pose, not the original one. Otherwise it crashes on the mutated pose.
     task_factory = core.pack.task.TaskFactory()
