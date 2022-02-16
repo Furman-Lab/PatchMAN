@@ -108,16 +108,27 @@ pep_sequence=$2
 
 pushd $work_dir > /dev/null
 
+# Prepare receptor
+# if validate_pdb returns 0, then the receptor is valid
+validate_pdb $receptor || die "Receptor is not a valid PDB file: $receptor"
 cp $receptor .
+receptor=$(readlink -f $(basename "$receptor"))
+receptor_base=$(basename "$receptor")
 
-if  [[ -f $mask ]]
+# Rename all receptor chains to one, otherwise the protocol crashes
+chain_id=$(grep -m 1 '^ATOM' $receptor | cut -c 22)
+sed -Ei "s/^(ATOM.{17})[A-Z]/\1${chain_id}/" $receptor
+sed '/^TER/d' -i $receptor
+
+# Prepare mask if provided
+if  [[ -f "$mask" ]]
 then
-	cp $mask .
+  # if validate_pdb returns 0, then the mask is valid
+  validate_pdb $mask || die "Mask is not a valid PDB file: $mask"
+  cp $mask .
+  mask=$(readlink -f $(basename "$mask"))
 fi
 
-receptor=$(readlink -f $(basename $receptor))
-receptor_base=$(basename $receptor)
-mask=$(readlink -f $(basename $mask))
 
 # Step 1: Split to motifs
 python ${BIN_DIR}/split_to_motifs.py "$receptor" "$mask"
