@@ -3,7 +3,8 @@
 ###########################################################
 #           Setup file for python and PyRosetta           #
 #                                                         #
-# This script installs pytho packages and PyRosetta.      #
+# This script installs pytho packages and PyRosetta. Not  #
+# needed if working with containers.                      #
 #                                                         #
 #           Created by Furman Lab at HUJI, 2022.          #
 ###########################################################

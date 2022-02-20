@@ -45,4 +45,6 @@ plen=`echo ${#peps}`
 R=$2 #radius arg
 actualR=`date | awk '{print sqrt('$plen'/'$len')*'$R'}'`
 echo actual radius is "$actualR"
-${ROSETTA_BIN}/cluster.linuxgccrelease -in:file:silent ../decoys.silent -in:file:silent_struct_type binary -cluster:radius "$actualR" -in:file:fullatom -tags `cat ../top1percent` > clog
+
+# calling mpiserialization to only have to compile Rosetta with these 2 extras
+${ROSETTA_BIN}/cluster.mpiserialization.linuxgccrelease -in:file:silent ../decoys.silent -in:file:silent_struct_type binary -cluster:radius "$actualR" -in:file:fullatom -tags `cat ../top1percent` > clog

@@ -14,3 +14,8 @@ bin/*.pl
 .idea
 try.def
 venv_PatchmanProtocol/
+containers/*
+!containers/master.def
+!containers/rosetta.def
+!containers/python.def
+setup_python_env.sh

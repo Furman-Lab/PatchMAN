@@ -20,31 +20,38 @@ die() {
 	exit 1
 }
 
-source .env
+# if count_atom_lines greather than 0, then the file is a PDB file, return true
+validate_pdb() {
+  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {9}[A-Z ]{2}[A-Z ]{0,2}" $1)
+  echo count $count_atom_lines
+  if [[ $count_atom_lines -gt 0 ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
 
 ###########################################################
 # Set protocol root based on the path of this script.
 export PROTOCOL_ROOT=$(dirname $(realpath ${BASH_SOURCE}))
+source ${PROTOCOL_ROOT}/.env $PROTOCOL_ROOT
 export BIN_DIR=${PROTOCOL_ROOT}/bin
 export PATH=.:${BIN_DIR}:${PATH}
 export PYTHONPATH="" # messes up python packages inside the container otherwise
-export DB_PATH="${PROTOCOL_ROOT}/databases/master_clean" # !!!
-
 [ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: ${PROTOCOL_ROOT}"
 ###########################################################
-
 if [[ "$VIRTUAL_ENV" == '' ]]
 then
-	export PYTHON=$(echo $PYTHON | sed "s/PROTOCOL_ROOT/${PROTOCOL_ROOT}/g")
+	export PYTHON=$(echo $PYTHON | sed "s#PROTOCOL_ROOT#${PROTOCOL_ROOT}#g")
 else
 	. $VIRTUAL_ENV/bin/activate || die "No virtual environment detected. Please install it first by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
 	export PYTHON="python3 "
 fi
 
-export ROSETTA=$(echo $ROSETTA | sed "s/PROTOCOL_ROOT/${PROTOCOL_ROOT}/g")
-export MASTER=$(echo $MASTER | sed "s/PROTOCOL_ROOT/${PROTOCOL_ROOT}/g")
-export ROSETTA_TOOLS="${ROSETTA}/tools/"
-export ROSETTA_BIN="${ROSETTA}/main/source/bin/"
+if [[ "$DB_PATH" == '' ]]
+then
+	export DB_PATH="${PROTOCOL_ROOT}/databases/master_clean/"
+fi
 ###########################################################
 
 # Defaults
@@ -62,13 +69,13 @@ usage() {
 		RECEPTOR: PDB file with the receptor protein
 		PEPTIDE_SEQUENCE can include modified residues in "GFK[SER:phosphorylated]RAD" format.
 
-        	-m minimize receptor backbone (true or false; default: true)
+		-m minimize receptor backbone, longer runtime (true or false; default: true)
 		-t number of refinement runs for FlexPepDock (default: 1)
-		-s masked residues as a PDB structure (default: None)
+		-s masked residues as a PDB structure (experimental, default: None)
 
 		-w working directory (default: current directory)
 		-o output directory for the ligands (default: working directory)
-		-g log file (Default is stdout)
+		-g log file (Default is	stdout)
 		-e error log file (Default is stderr)
 		-n job name
 		-v verbose (default: false)
@@ -119,7 +126,6 @@ shift "$((OPTIND-1))"
 pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # remove PTMs for validation of the rest of the peptide
 [[ "${pep_sequence_to_validate}" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2" # modified for PTM
 
-
 ############### PREPARE JOB ###############
 # Creating a directory for the job and copying inputs to it
 receptor=$(readlink -f $1)
@@ -128,6 +134,8 @@ pep_sequence="$2"
 pushd $work_dir > /dev/null
 
 # Prepare receptor
+# if validate_pdb returns 0, then the receptor is valid
+validate_pdb $receptor || die "Receptor is not a valid PDB file: $receptor"
 cp $receptor .
 receptor=$(readlink -f $(basename "$receptor"))
 receptor_base=$(basename "$receptor")
@@ -135,12 +143,15 @@ receptor_base=$(basename "$receptor")
 # Rename all receptor chains to one, otherwise the protocol crashes
 chain_id=$(grep -m 1 '^ATOM' $receptor | cut -c 22)
 sed -Ei "s/^(ATOM.{17})[A-Z]/\1${chain_id}/" $receptor
+sed '/^TER/d' -i $receptor
 
 # Prepare mask if provided
-if  [[ -f "$mask" ]]
+if  [[ ! -n "$mask" ]]
 then
-	cp "$mask" .
-	mask=$(readlink -f $(basename "$mask"))
+  # if validate_pdb returns 0, then the mask file is an invalid PDB file
+  validate_pdb $mask || die "Mask is not a valid PDB file: $mask"
+  cp $mask .
+  mask=$(readlink -f $(basename "$mask"))
 fi
 
 
