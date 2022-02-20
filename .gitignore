@@ -3,13 +3,14 @@
 *whl
 *tar*
 *sif*
+*pdb
 masterDB/
 db_list_30nonred
 Dockerfile
 bin/__pycache__/
 try.def
 test/*
-!test/1sshA.pdb
+!test/1ssh.pdb
 bin/*.pl
 .idea
 try.def
