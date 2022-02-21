@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 ###########################################################
 #                  The PatchMAN protocol                  #
 #                                                         #
@@ -23,7 +22,6 @@ die() {
 # if count_atom_lines greather than 0, then the file is a PDB file, return true
 validate_pdb() {
   count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {9}[A-Z ]{2}[A-Z ]{0,2}" $1)
-  echo count $count_atom_lines
   if [[ $count_atom_lines -gt 0 ]]; then
     return 0
   else
@@ -48,10 +46,6 @@ else
 	export PYTHON="python3 "
 fi
 
-if [[ "$DB_PATH" == '' ]]
-then
-	export DB_PATH="${PROTOCOL_ROOT}/databases/master_clean/"
-fi
 ###########################################################
 
 # Defaults
@@ -146,7 +140,7 @@ sed -Ei "s/^(ATOM.{17})[A-Z]/\1${chain_id}/" $receptor
 sed '/^TER/d' -i $receptor
 
 # Prepare mask if provided
-if  [[ ! -n "$mask" ]]
+if  [[ "$mask" -ne '' ]]
 then
   # if validate_pdb returns 0, then the mask file is an invalid PDB file
   validate_pdb $mask || die "Mask is not a valid PDB file: $mask"

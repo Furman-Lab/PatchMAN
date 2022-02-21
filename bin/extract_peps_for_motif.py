@@ -47,10 +47,9 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
     with open(log_name, 'w') as log:
         log.write('Patch: %s\n'%patch_name)
 
-    print(matches)
     for match in matches:
         rmsd = match[0]
-        motif_pdb = match[1][-4:]
+        motif_pdb = match[1][0:4]
         motif_stretches = match[2]
         t = match[3]
         R = match[4]
@@ -58,11 +57,12 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
         indices = [r + 1 for m_stretch in motif_stretches for r in m_stretch]  # the numbering in master output is from 0
 
         match_to_report = motif_pdb + ': ' + ','.join([str(i) for i in indices])
+        pdb_path = DB_PATH + motif_pdb.upper() + '.clean.pdb'
 
-        if not path.isfile(DB_PATH + motif_pdb.upper() + '.clean.pdb'):
+        if not path.isfile(pdb_path):
             pdb_pose = toolbox.pose_from_rcsb(motif_pdb)
         else:
-            pdb_pose = pose_from_pdb(DB_PATH + motif_pdb.upper() + '.clean.pdb') # all pdbs are downloaded in the previous step (download_all_pdbs.sh)
+            pdb_pose = pose_from_pdb(pdb_path) # all pdbs are downloaded in the previous step (download_all_pdbs.sh)
 
         chain_breaks = []
         for jump in range(1, pdb_pose.num_chains()):
