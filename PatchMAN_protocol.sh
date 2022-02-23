@@ -11,8 +11,7 @@ die() {
 
 [ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: $PROTOCOL_ROOT"
 
-export PROTOCOL_ROOT=/vol/ek/share/patchman_for_server
-
+export PROTOCOL_ROOT=$(dirname $(realpath $BASH_SOURCE)) # changed for development purposes but could probably stay like that
 export BIN_DIR=${PROTOCOL_ROOT}/bin
 
 export ROSETTA_DB=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/database
@@ -31,14 +30,14 @@ export VIRTUAL_ENV=/cs/labs/fora/projects/autopeptidb/staging/venv_PatchmanProto
 #activating virtual env (needed for various python libraries used in the protocol)
 . $VIRTUAL_ENV/bin/activate || die "No virtual environment detected. Please install it first by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
 
-
-module load openmpi/2.1.6 
+module load openmpi/2.1.6
 
 # Defaults
 work_dir=$(pwd)
 job_name="PatchMAN_JOB"
 cluster_radius="2.0"
 min_rec_bb="true"
+nstruct=1
 master_cutoff="1.5"
 
 usage() {
@@ -75,11 +74,14 @@ while getopts :hvw:g:c:t:f:j:s:n:m: opt; do
 			work_dir=$OPTARG
 			;;
 		t)
-			n_top_rots=$OPTARG
+			nstruct=$OPTARG
 			;;
 
-    m)
+		m)
 			min_rec_bb=$OPTARG
+			;;
+		s)
+			mask=$(readlink -f $OPTARG)
 			;;
 		v)
 			verbose=True
@@ -100,7 +102,8 @@ done
 shift "$((OPTIND-1))"
 
 [ -r "$1" ] || die "Receptor is not a readable file: $1"
-[[ "$2" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2"
+pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # remove PTMs for validation of the rest of the peptide
+[[ "$pep_sequence_to_validate" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2" # modified for PTM
 
 # Creating a directory for the job and copying inputs to it
 receptor=$(readlink -f $1)
@@ -108,13 +111,30 @@ pep_sequence=$2
 
 pushd $work_dir > /dev/null
 
+# Prepare receptor
+# if validate_pdb returns 0, then the receptor is valid
+validate_pdb $receptor || die "Receptor is not a valid PDB file: $receptor"
 cp $receptor .
+receptor=$(readlink -f $(basename "$receptor"))
+receptor_base=$(basename "$receptor")
 
-receptor=$(readlink -f $(basename $receptor))
-receptor_base=$(basename $receptor)
+# Rename all receptor chains to one, otherwise the protocol crashes
+chain_id=$(grep -m 1 '^ATOM' $receptor | cut -c 22)
+sed -Ei "s/^(ATOM.{17})[A-Z]/\1${chain_id}/" $receptor
+sed '/^TER/d' -i $receptor
+
+# Prepare mask if provided
+if  [[ -f "$mask" ]]
+then
+  # if validate_pdb returns 0, then the mask is valid
+  validate_pdb $mask || die "Mask is not a valid PDB file: $mask"
+  cp $mask .
+  mask=$(readlink -f $(basename "$mask"))
+fi
+
 
 # Step 1: Split to motifs
-python ${BIN_DIR}/split_to_motifs.py "$receptor"
+python ${BIN_DIR}/split_to_motifs.py "$receptor" "$mask"
 
 clean_rec=`echo ${receptor_base::-4}`'.clean.pdb'
 rec_name=`echo ${receptor_base::-4}`
@@ -142,7 +162,7 @@ extract_templates_jid=$(sbatch --array=0-"$n_searches"%50 --dependency=afterok:"
 
 # Step 4: FPD
 fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
-          fpd.sh "$clean_rec" "$min_rec_bb" | awk '{print $NF}')
+          fpd.sh "$clean_rec" "$min_rec_bb" "$nstruct" | awk '{print $NF}')
 
 
 # Step 5: Clustering
