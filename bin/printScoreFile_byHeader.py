@@ -1,5 +1,4 @@
 import sys, os
-import pandas as pd
 
 def main():
     if len(sys.argv) < 3:
@@ -8,17 +7,31 @@ def main():
 
     score_file = sys.argv[1]
     scores = sys.argv[2:]
-
-    score_df = pd.read_csv(score_file, skiprows=0, header=1, sep=r"\s+", low_memory=False)
-    score_df['src_file'] = os.path.split(score_file)[1] # not really needed only for compatibility with old code
-    score_df = score_df.query('total_score!="total_score"') # sometimes score name lines are repeated, we need to get rid of them
-    output = score_df[['src_file'] + scores]
-
-    print(output.to_string(index=False))
+    src_file = os.path.split(score_file)[1]
+    
+    # process line-by line, skip lines with SEQUENCE
+    print('src_file' + ' ' + " ".join(scores))
+    with open(score_file, 'r') as f:
+        header = []
+        indices = []
+        for line in f:
+            if line.startswith('SEQUENCE'):
+                continue
+            if line.startswith('SCORE'):
+                if len(header) == 0:
+                    header = line.strip().split()
+                    for score in scores:
+                        try:
+                            idx = header.index(score)
+                            indices.append(idx)
+                        except:
+                            continue
+                else:
+                    # select keys defined by columns from splitted line
+                    split_line = line.strip().split()
+                    values = [split_line[i] for i in indices]
+                    print(src_file + ' ' + " ".join(values))
 
 
 if __name__ == "__main__":
     main()
-    
-    # switch chains A and B in PDB file with biopandas
-    
