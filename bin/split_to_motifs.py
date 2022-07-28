@@ -146,7 +146,7 @@ def main():
     prot_name = os.path.splitext(os.path.basename(inpdb))[0]
     pose = pose_from_pdb(prot_name+'.clean.pdb')
 
-    if sys.argv[2] != '':
+    if len(sys.argv) > 2:
         print('reading masking residues from: ' + sys.argv[2])
         maskpdb = sys.argv[2] # mask PDB file, containing residues NOT to use
         toolbox.cleaning.cleanATOM(maskpdb)
