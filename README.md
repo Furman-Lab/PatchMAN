@@ -4,6 +4,7 @@
 
 <br /><br /><br /><br /><br />
 
+
 ### Description
 
 PatchMAN (Patch-Motif AligNments) maps the receptor surface for local structural motif matches in structures of protein monomers and interfaces, to extract complementary fragments and derive templates for peptide-protein docking.

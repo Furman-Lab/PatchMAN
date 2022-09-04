@@ -30,8 +30,7 @@ Create initial complexes: extract peptides from proteins with motifs similar to 
 
 
 def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scrfxn, design):
-    """For each motif there are N matches. Currently I limit them to the 1000 best RMSD matches. Probably should
-    sample more distant matches too."""
+    """For each motif there are N matches. Take first and last 50 (100 overall), if less take all."""
     single_motif_complexes = 0
 
     start_motif = time.time()
@@ -186,7 +185,7 @@ def superimpose_using_RT(t, R, pdb_pose):
 
 
 def create_r_matrix(R_l):
-    """create matrix for transformation (from TM-align)"""
+    """create matrix for transformation"""
     x1, y1, z1 = R_l[0]
     x2, y2, z2 = R_l[1]
     x3, y3, z3 = R_l[2]
@@ -262,7 +261,7 @@ def elongate_stretch(stretch, peplen, tot_res, chain_breaks):
     new_stretch = []
     stretches = []
 
-    first_res = int(stretch[0]) - dif  # from which we can start??
+    first_res = int(stretch[0]) - dif  # from which we can start
     while first_res <= 0:
         first_res += 1
         if first_res == int(stretch[0]):
@@ -335,7 +334,7 @@ def arg_parser():
 
 def main():
     args = arg_parser().parse_args()
-    all_matches = parse_matches(args.matchl) # here pass the list of all matches for 1 motif
+    all_matches = parse_matches(args.matchl) # list of all matches for 1 motif
     pep = args.pep
     receptor = args.rec
     patch = args.patch
