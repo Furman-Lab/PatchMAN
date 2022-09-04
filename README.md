@@ -4,6 +4,12 @@
 
 <br /><br /><br /><br /><br /><br /><br /><br />  
 
+*This version is different from the one published in https://doi.org/10.1073/pnas.2121153119:*  
+
+- *it includes a bash script running the whole prtotocol on SLURM workload manager*  
+- *it searches a new database compiled with PISCES on 22.5.2022*   
+*(cullpdb_pc30.0_res0.0-3.0_len40-10000_R0.3_Xray_d2022_05_22_chains16587)*   
+
 ### Description
 
 PatchMAN (Patch-Motif AligNments) maps the receptor surface for local structural motif matches in structures of protein monomers and interfaces, to extract complementary fragments and derive templates for peptide-protein docking.
