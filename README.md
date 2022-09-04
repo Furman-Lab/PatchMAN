@@ -29,14 +29,16 @@ To run PatchMAN the following prequisites should be downloaded and installed:
   - In the Match.cpp file:
 Go to line 107 and add the following code (before ```return os;```):
 
-    ```double *T=((Match*)(&m))->getTranslation();
+    ```
+    double *T=((Match*)(&m))->getTranslation();
     double **R=((Match*)(&m))->getRotation();
 
     os << " T: " << T[0]    << " " << T[1]    << " " << T[2]    << " ";
     os << " U: " << R[0][0] << " " << R[0][1] << " " << R[0][2] << " "
                  << R[1][0] << " " << R[1][1] << " " << R[1][2] << " "
-                 << R[2][0] << " " << R[2][1] << " " << R[2][2] << " ===" ;```
-  - Follow the instruction in the INSTALL file to compile MASTER 
+                 << R[2][0] << " " << R[2][1] << " " << R[2][2] << " ===" ;
+                 
+- Follow the instruction in the INSTALL file to compile MASTER 
 - Download [MASTER database](https://grigoryanlab.org/master/#database) for template search
 
 ### Running PatchMAN
