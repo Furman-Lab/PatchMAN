@@ -1,9 +1,8 @@
 ## PatchMAN protocol for blind peptide-protein docking
 
-<img align="left" width="500" height="144" src="https://raw.githubusercontent.com/Alisa-Kh/PatchMAN/master/img/PatchMAN_small.PNG"> 
+<img align="left" width="500" height="144" src="https://raw.githubusercontent.com/Alisa-Kh/PatchMAN/master/img/PatchMAN_small.PNG">  
 
-<br /><br /><br /><br /><br />
-
+<br /><br /><br /><br /><br />  
 
 ### Description
 
@@ -47,6 +46,6 @@ A PatchMAN demo run can be found in the *example_run* folder
 
 ### Citing PatchMAN
 
-Matching protein surface structural patches for high-resolution blind peptide docking 
-A Khramushin, Z Ben-Aharon, T Tsaban, JK Varga, O Avraham, O Schueler-Furman. PNAS 119, 1–10, 2022. 
+Matching protein surface structural patches for high-resolution blind peptide docking  
+A Khramushin, Z Ben-Aharon, T Tsaban, JK Varga, O Avraham, O Schueler-Furman. PNAS 119, 1–10, 2022.  
 https://doi.org/10.1073/pnas.2121153119 
