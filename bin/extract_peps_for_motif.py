@@ -1,4 +1,4 @@
-#!/vol/ek/Home/alisa/python3.5/bin/python3
+
 
 from pyrosetta import *
 from pyrosetta.rosetta import *
@@ -22,6 +22,7 @@ CLASH_DIST = 2
 
 OVERALL_MATCHES = 100
 
+DB_PATH = '/vol/ek/share/databases/master_clean/'
 
 """Receives a list of matches for *1* motif, the receptor pdb file and the peptide sequence.
 Create initial complexes: extract peptides from proteins with motifs similar to the query, thread the pepseq with fixbb.
@@ -30,7 +31,8 @@ Create initial complexes: extract peptides from proteins with motifs similar to 
 
 
 def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scrfxn, design):
-    """For each motif there are N matches. Take first and last 50 (100 overall), if less take all."""
+    """For each motif there are N matches. Currently I limit them to the 1000 best RMSD matches. Probably should
+    sample more distant matches too."""
     single_motif_complexes = 0
 
     start_motif = time.time()
@@ -55,11 +57,22 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
         indices = [r + 1 for m_stretch in motif_stretches for r in m_stretch]  # the numbering in master output is from 0
 
         match_to_report = motif_pdb + ': ' + ','.join([str(i) for i in indices])
+        #
+        # if not path.isfile(motif_pdb.upper() + '.clean.pdb'):
+        #     pdb_pose = toolbox.pose_from_rcsb(motif_pdb)
+        # else:
+        #     pdb_pose = pose_from_pdb(motif_pdb.upper() + '.clean.pdb') # all pdbs are downloaded in the previous step (download_all_pdbs.sh)
 
-        if not path.isfile(motif_pdb.upper() + '.clean.pdb'):
-            pdb_pose = toolbox.pose_from_rcsb(motif_pdb)
+        if not path.isfile(DB_PATH + motif_pdb.upper() + '.clean.pdb'):
+            try:
+                pdb_pose = toolbox.pose_from_rcsb(motif_pdb)
+            except RuntimeError:
+                continue
         else:
-            pdb_pose = pose_from_pdb(motif_pdb.upper() + '.clean.pdb')
+            try:
+                pdb_pose = pose_from_pdb(DB_PATH + motif_pdb.upper() + '.clean.pdb') # all pdbs are downloaded in the previous step (download_all_pdbs.sh)
+            except RuntimeError:
+                continue
 
         chain_breaks = []
         for jump in range(1, pdb_pose.num_chains()):
@@ -88,8 +101,8 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
                 if not design:
 
                     pep_template_seq = complex_pose.chain_sequence(2)
-                    # if 'Z' in pep_template_seq: uncomment after benchmark
-                    #     continue
+                    if 'Z' in pep_template_seq:
+                        continue
                     motif_seq, patch_seq = compare_motif_seq_id(patch_pose, pdb_pose, indices)
 
                     if thread_pepseq(complex_name, complex_pose, pepseq, scrfxn):
@@ -185,7 +198,7 @@ def superimpose_using_RT(t, R, pdb_pose):
 
 
 def create_r_matrix(R_l):
-    """create matrix for transformation"""
+    """create matrix for transformation (from TM-align)"""
     x1, y1, z1 = R_l[0]
     x2, y2, z2 = R_l[1]
     x3, y3, z3 = R_l[2]
@@ -261,7 +274,7 @@ def elongate_stretch(stretch, peplen, tot_res, chain_breaks):
     new_stretch = []
     stretches = []
 
-    first_res = int(stretch[0]) - dif  # from which we can start
+    first_res = int(stretch[0]) - dif  # from which we can start??
     while first_res <= 0:
         first_res += 1
         if first_res == int(stretch[0]):
@@ -334,7 +347,7 @@ def arg_parser():
 
 def main():
     args = arg_parser().parse_args()
-    all_matches = parse_matches(args.matchl) # list of all matches for 1 motif
+    all_matches = parse_matches(args.matchl) # here pass the list of all matches for 1 motif
     pep = args.pep
     receptor = args.rec
     patch = args.patch

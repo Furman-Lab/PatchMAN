@@ -1,14 +1,14 @@
-#!/vol/ek/Home/alisa/python3.5/bin/python3.5
+
 
 from pyrosetta import *
 from pyrosetta.rosetta import *
 
-# #Core
-# from pyrosetta.rosetta.core.pack.task import TaskFactory
-# from pyrosetta.rosetta.core.pack.task import operation
-#
-# #Protocols
-# from pyrosetta.rosetta.protocols import minimization_packing as pack_min
+#Core
+from pyrosetta.rosetta.core.pack.task import TaskFactory
+from pyrosetta.rosetta.core.pack.task import operation
+
+#Protocols
+from pyrosetta.rosetta.protocols import minimization_packing as pack_min
 
 SBATCH_HEADER = '#!/bin/sh\n' \
                 '#SBATCH --ntasks={ntasks}\n' \
@@ -133,23 +133,35 @@ def write_fpd_flags(models, native, receptor_name):
     with open('flags', 'w') as flags:
         flags.write(flags_string)
 
-# def prepack(pose):
-#
-#     new_pose = pose.clone()
-#
-#     tf = TaskFactory()
-#     tf.push_back(operation.InitializeFromCommandline())
-#     tf.push_back(operation.RestrictToRepacking())
-#     tf.push_back(operation.IncludeCurrent())
-#     tf.push_back(operation.NoRepackDisulfides())
-#
-#     packer = pack_min.PackRotamersMover()
-#     packer.task_factory(tf)
-#
-#     # min = pack_min.MinMover()
-#     # min =
-#
-#     packer.apply(new_pose)
-#
-#     return new_pose
+def prepack(pose):
 
+    new_pose = pose.clone()
+
+    tf = TaskFactory()
+    tf.push_back(operation.InitializeFromCommandline())
+    tf.push_back(operation.RestrictToRepacking())
+    tf.push_back(operation.IncludeCurrent())
+    tf.push_back(operation.NoRepackDisulfides())
+
+    packer = pack_min.PackRotamersMover()
+    packer.task_factory(tf)
+
+    packer.apply(new_pose)
+
+    return new_pose
+
+def prepack_min(pose):
+    new_pose = pose.clone
+
+    prepack(new_pose)
+
+    mm = MoveMap()
+    mm.set_bb(False)
+    mm.set_chi(True)
+
+    minmover = pack_min.MinMover()
+    minmover.movemap(mm)
+
+    minmover.apply(new_pose)
+
+    return new_pose

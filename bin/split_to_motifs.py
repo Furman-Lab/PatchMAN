@@ -1,4 +1,4 @@
-#!/vol/ek/Home/alisa/python3.5/bin/python3.5
+
 
 from pyrosetta import *
 from pyrosetta.rosetta import *
@@ -125,6 +125,6 @@ def main():
 
 if __name__ == "__main__":
 
-    pyrosetta.init()
+    pyrosetta.init('-mute core.select.residue_selector')
 
     main()

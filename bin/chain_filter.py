@@ -1,4 +1,4 @@
-#!/vol/ek/Home/alisa/python3.5/bin/python3.5
+
 
 from sklearn.neighbors import NearestNeighbors
 import numpy as np
@@ -14,7 +14,6 @@ def parse_pdb_file(patch_file):
     with open(patch_file, 'r') as f:
         lines = f.readlines()
     atom_full_names = []
-    atom_type = []
     chain_names = []
     xs = []
     ys = []
@@ -23,7 +22,6 @@ def parse_pdb_file(patch_file):
     for line in lines:
         if line.startswith('ATOM') or line.startswith('HETATM'):
             atom_full_names.append(line[12:16].strip())
-            atom_type.append(line[76:78].strip())
             chain_names.append(line[21].strip())
             res_ids.append(int(line[22:26].strip()))
             xs.append(float(line[30:38].strip()))
@@ -31,7 +29,6 @@ def parse_pdb_file(patch_file):
             zs.append(float(line[46:54].strip()))
 
     pdb_data = DataFrame({'atom_full_name': atom_full_names,
-                          'atom_type': atom_type,
                           'chain_name': chain_names,
                           'res_id': res_ids,
                           'X': xs,
@@ -50,10 +47,6 @@ def find_relevant_chains(prot_complex_file, clash_dist, interaction_dist):
 
     all_names = prot_data.atom_full_name.unique()
     h_names = [name for name in all_names if 'H' in name and name != 'OH'] # all the hydrogens
-
-    # TODO: change to
-    # all_atom_names = prot_data.atom_full_name.unique()
-    # h_names = prot_data[prot_data.atom_type == 'H'].atom_full_name.unique() # all the hydrogens
 
     protein_backbone = receptor[receptor.atom_full_name.isin(BACKBONE_ATOMS)]
     protein_backbone_coords = protein_backbone[['X','Y','Z']].values
