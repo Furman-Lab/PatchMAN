@@ -1,13 +1,6 @@
 ## PatchMAN protocol for blind peptide-protein docking
 
-<img align="left" width="500" height="144" src="https://raw.githubusercontent.com/Alisa-Kh/PatchMAN/master/img/PatchMAN_small.PNG">  
-
-<br /><br /><br /><br /><br />  
-  
-  
-  
-  
-  
+<img align="left" width="500" height="144" src="https://raw.githubusercontent.com/Alisa-Kh/PatchMAN/master/img/PatchMAN_small.PNG"/>  
 
 ### Description
 
