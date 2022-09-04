@@ -4,7 +4,7 @@
 
 <br /><br /><br /><br /><br /><br /><br /><br />  
 
-*This version is different from the one published in https://doi.org/10.1073/pnas.2121153119:*  
+*This version is different from the original (https://doi.org/10.1073/pnas.2121153119):*  
 
 - *it includes a bash script running the whole prtotocol on SLURM workload manager*  
 - *it searches a new database compiled with PISCES on 22.5.2022*   
