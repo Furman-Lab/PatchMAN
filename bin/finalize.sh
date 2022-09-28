@@ -7,11 +7,11 @@ tail -$((x+5)) clog | head -${x} | grep _0001 | awk  '{for(i=1;i<=NF;i++){if ($i
 for i in `awk '{print $1}' cluster_list`;
   do sed 1d ../score.sc | head -1 > tmp1;
     grep $i ../score.sc >> tmp1;
-    /vol/ek/share/labscripts/printScoreFile_byHeader.pl tmp1 I_sc reweighted_sc | tail -1 | awk '{print $2,$3}' >>pdb_list_sc;
+    /vol/ek/share/labscripts/printScoreFile_byHeader.pl tmp1 I_sc reweighted_sc rmsBB_if | tail -1 | awk '{print $2,$3,$4}' >>pdb_list_sc;
   done;
 paste cluster_list pdb_list_sc >cluster_list_sc;
-echo "Decoy_ID Cluster_no Member_ID I_sc reweighted_sc" >cluster_list_I_sc_sorted;
-echo "Decoy_ID Cluster_no Member_ID I_sc reweighted_sc" >cluster_list_reweighted_sc_sorted;
+echo "Decoy_ID Cluster_no Member_ID I_sc reweighted_sc rmsBB_if" >cluster_list_I_sc_sorted;
+echo "Decoy_ID Cluster_no Member_ID I_sc reweighted_sc rmsBB_if" >cluster_list_reweighted_sc_sorted;
 sort -nk 4 cluster_list_sc | sort -u -k2,2 | sort -nk 4 | head -10 >>cluster_list_I_sc_sorted;
 sort -nk 5 cluster_list_sc | sort -u -k2,2 | sort -nk 5 | head -10 >>cluster_list_reweighted_sc_sorted;
 cd ../

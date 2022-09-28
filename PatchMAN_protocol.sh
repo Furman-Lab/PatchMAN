@@ -29,7 +29,7 @@ module load openmpi/2.1.6
 work_dir=$(pwd)
 job_name="PatchMAN_JOB"
 cluster_radius="2.0"
-min_rec_bb="false"
+min_rec_bb="True"
 master_cutoff="1.5"
 
 
@@ -51,12 +51,15 @@ usage() {
 }
 
 
-while getopts :hvw:g:t:c:f:j:s:n:m: opt; do
+while getopts :hvw:a:g:t:c:f:j:s:n:m: opt; do
 	case $opt in
 		h)
 			usage
 			exit 0
 			;;
+	  a)
+	    native=$OPTARG
+	    ;;
 		g)
 			logs_dir=$OPTARG
 			;;
@@ -134,8 +137,14 @@ extract_templates_jid=$(sbatch --array=0-"$n_searches"%50 --dependency=afterok:"
                     "$pep_sequence" "$ppkrec" | awk '{print $NF}')
 
 # Step 4: FPD
-fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
-          fpd.sh "$clean_rec" "$min_rec_bb" | awk '{print $NF}')
+if [ -z "$native" ]
+then
+      fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
+                fpd.sh "$clean_rec" "$min_rec_bb" "$native" | awk '{print $NF}')
+else
+      fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
+                fpd.sh "$clean_rec" "$min_rec_bb" | awk '{print $NF}')
+fi
 
 
 # Step 5: Clustering

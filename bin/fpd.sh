@@ -5,10 +5,23 @@
 #SBATCH	--mem-per-cpu=1600
 #SBATCH	--get-user-env
 #SBATCH --ntasks=150
-#SBATCH --module="openmpi/2.1.6"
+##SBATCH --module="openmpi/2.1.6"
 
-#module load openmpi/2.1.6
+module load openmpi/2.1.6
 ls *0001.pdb > input_list;
-mpirun $ROSETTA_BIN/FlexPepDocking.mpiserialization.linuxgccrelease -in:file:l input_list -scorefile score.sc -out:file:silent_struct_type binary \
--out:file:silent decoys.silent -lowres_preoptimize -flexPepDocking:pep_refine -flexPepDocking:flexpep_score_only \
--ex1 -ex2aro -use_input_sc -unboundrot "$1" -min_receptor_bb "$2" 
+
+if (($# == 3))
+then
+  mpirun $ROSETTA_BIN/FlexPepDocking.mpiserialization.linuxgccrelease -in:file:l input_list -scorefile score.sc -out:file:silent_struct_type binary \
+  -out:file:silent decoys.silent -lowres_preoptimize -flexPepDocking:pep_refine -flexPepDocking:flexpep_score_only \
+  -ex1 -ex2aro -use_input_sc -unboundrot "$1" -min_receptor_bb "$2" -native "$3"
+elif (($# == 2))
+then
+  mpirun $ROSETTA_BIN/FlexPepDocking.mpiserialization.linuxgccrelease -in:file:l input_list -scorefile score.sc -out:file:silent_struct_type binary \
+  -out:file:silent decoys.silent -lowres_preoptimize -flexPepDocking:pep_refine -flexPepDocking:flexpep_score_only \
+  -ex1 -ex2aro -use_input_sc -unboundrot "$1" -min_receptor_bb "$2"
+else
+  echo "Missing arguments for refinement"
+  echo "The provided arguments are:"
+  echo $@
+fi
