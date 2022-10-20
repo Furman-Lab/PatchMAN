@@ -7,8 +7,8 @@
 *This version is different from the original (https://doi.org/10.1073/pnas.2121153119):*  
 
 - *it includes a bash script running the whole prtotocol on SLURM workload manager*  
-- *it searches a new database compiled with PISCES on 22.5.2022*   
-*(cullpdb_pc30.0_res0.0-3.0_len40-10000_R0.3_Xray_d2022_05_22_chains16587)*   
+- *it includes an additional filtering step: the template complexes (before the fixbb step!) are filtered bt BSA
+- *here the template peptides are extracted from precompiled database of full proteins from the MASTER database (preprocessed with clean_pdb.py)
 
 ### Description
 
