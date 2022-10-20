@@ -13,7 +13,7 @@ motif=${motifs["$SLURM_ARRAY_TASK_ID"]}
 echo $1 > pepfile
 
 # For old DB uncomment:
-#python ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
+python ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
 
 # For new DB uncomment
-python ${BIN_DIR}/extract_templates_newDB.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
+#python ${BIN_DIR}/extract_templates_newDB.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
