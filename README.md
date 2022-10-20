@@ -7,8 +7,8 @@
 *This version is different from the original (https://doi.org/10.1073/pnas.2121153119):*  
 
 - *it includes a bash script running the whole prtotocol on SLURM workload manager*  
-- *it includes an additional filtering step: the template complexes (before the fixbb step!) are filtered bt BSA
-- *here the template peptides are extracted from precompiled database of full proteins from the MASTER database (preprocessed with clean_pdb.py)
+- *it includes an additional filtering step: the template complexes (before the fixbb step!) are filtered bt BSA*  
+- *here the template peptides are extracted from precompiled database of full proteins from the MASTER database (preprocessed with clean_pdb.py)*  
 
 ### Description
 
