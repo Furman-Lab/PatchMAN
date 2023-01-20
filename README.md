@@ -73,7 +73,12 @@ sudo singularity build master.sif master.def # this also takes care of patching 
                      << R[1][0] << " " << R[1][1] << " " << R[1][2] << " "
                      << R[2][0] << " " << R[2][1] << " " << R[2][2] << " ===" ;
         ```
-  - Follow the instruction in the INSTALL file to compile MASTER.
+  - After patching, compile master with
+      ```
+      cd master 
+      make all
+      ```
+    For further info and support on MASTER, please read the INSTALL and [MASTER's homepage](https://grigoryanlab.org/master/)
 ---
 
 ### Quick start
