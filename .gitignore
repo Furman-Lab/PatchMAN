@@ -1,2 +1,7 @@
 db_list_30nonred
 
+__pycache__/
+databases/*
+containers/*sif
+containers/*whl
+containers/*gz
