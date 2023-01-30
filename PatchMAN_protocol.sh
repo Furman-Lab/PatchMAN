@@ -71,7 +71,8 @@ usage() {
 	        -w working directory (Default: current directory)
 	        -t number of structures to generate (Default: 1)
 	        -c master cutoff (Default: 1.5)
-	        -s mask file (Default: None)
+	        -s mask file with resides not in the binding site (type: pdb file, Default: None)
+	        -f focus mask, with residues that are in the binding site (type: pdb file, Default: None)
 	        -p step to start from (Default: 1, 1: split to motifs, 2: prepack receptor, 3: run MASTER,
 	        												4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)
 
@@ -79,7 +80,7 @@ usage() {
 	USAGE
 }
 
-while getopts :hvw:g:c:t:f:s:n:m:p: opt; do
+while getopts :hvw:g:c:t:f:s:n:m:p:f: opt; do
 	case $opt in
 		h)
 			usage
@@ -106,6 +107,9 @@ while getopts :hvw:g:c:t:f:s:n:m:p: opt; do
 			;;
 		s)
 			mask=$(readlink -f $OPTARG)
+			;;
+		f)
+			focus=$(readlink -f $OPTARG)
 			;;
 		v)
 			verbose=True
@@ -147,13 +151,19 @@ chain_id=$(grep -m 1 '^ATOM' $receptor | cut -c 22)
 sed -Ei "s/^(ATOM.{17})[A-Z]/\1${chain_id}/" $receptor
 sed '/^TER/d' -i $receptor
 
-# Prepare mask if provided
+# Prepare (focus) mask if provided
 if  [[ -f "$mask" ]]
 then
   # if validate_pdb returns 0, then the mask is valid
   validate_pdb $mask || die "Mask is not a valid PDB file: $mask"
   cp $mask .
   mask=$(readlink -f $(basename "$mask"))
+elif [[ -f "$focus" ]]
+then
+	# if validate_pdb returns 0, then the mask is valid
+	validate_pdb $focus || die "Mask is not a valid PDB file: $focus"
+	cp $focus .
+	focus=$(readlink -f $(basename "$focus"))
 fi
 
 # Set pdb filenames
@@ -177,7 +187,6 @@ then
 	prepack_receptor_jid=$(sbatch --job-name=prepack_receptor --get-user-env --time=90:00:00\
 	                --mem=1600m prepack_receptor.sh $clean_rec | awk '{print $NF}')
 fi
-
 
 # Step 3: Run MASTER
 if [[ $step -le 3 ]]
@@ -205,7 +214,6 @@ fi
 # Step 6: Clustering & Step 6: Finalizing
 if [[ $step -le 6 ]]
 then
-	echo 'DEBUG|submitting clustering and finalize'
 	fpd_jid=$(zero_jobid $fpd_jid)
 	clustering_jid=$(sbatch \
 					--job-name=clustering \
