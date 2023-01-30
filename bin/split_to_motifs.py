@@ -14,7 +14,7 @@ NEIGHBORS_DIST = 10
 BACKBONE_ATOMS = ['C', 'CA', 'O', 'N']
 MAX_STRETCH_LEN = 7
 MAX_HELIX_LEN = 11
-RATIO_ALLOWED_MASKED_RESIDUES = 0.5 # added for masking
+RATIO_ALLOWED_MASKED_RESIDUES = 0.8 # added for masking
 
 
 def define_motifs(pose, pdb_name, mask_pose=None):
