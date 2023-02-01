@@ -175,12 +175,22 @@ echo "DEBUG| " $clean_rec $rec_name $ppkrec
 # Step 1: Split to motifs
 if [[ $step -le 1 ]]
 then
-	python ${BIN_DIR}/split_to_motifs.py "$receptor" "$mask"
+	if [[ -f "$mask " ]]
+	then
+		args="-m $mask"
+	elif [[ -f $focus ]]; then
+		args="-f $focus"
+	else
+		args=""
+	fi
+
+	python ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args
 	ls ???'_'$rec_name'.pdb' > motif_list
-	$MASTER/createPDS --type query --pdbList motif_list
+	$MASTER/createPDS --type query --pdbList motif_list >& /dev/null # remove the long stdout
+	echo "MASTER pds files were created for all motifs"
 	n_searches=$(wc -l motif_list | gawk '{print $1}')
 fi
-
+exit 0
 # Step 2: Prepack receptor
 if [[ $step -le 2 ]]
 then

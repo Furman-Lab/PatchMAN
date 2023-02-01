@@ -13,4 +13,5 @@ motif=${motifs["$SLURM_ARRAY_TASK_ID"]}
 
 echo $1 > pepfile
 
-${PYTHON} ${PROTOCOL_ROOT}/bin/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
+# For old DB uncomment:
+${PYTHON} ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"

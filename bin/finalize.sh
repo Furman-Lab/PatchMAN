@@ -10,8 +10,8 @@ for i in `awk '{print $1}' cluster_list`;
     ${PYTHON} ${PROTOCOL_ROOT}/bin/printScoreFile_byHeader.py tmp1 I_sc reweighted_sc | tail -1 | awk '{print $2,$3}' >>pdb_list_sc;
   done;
 paste cluster_list pdb_list_sc >cluster_list_sc;
-echo "Decoy_ID Cluster_no Member_ID I_sc reweighted_sc" >cluster_list_I_sc_sorted;
-echo "Decoy_ID Cluster_no Member_ID I_sc reweighted_sc" >cluster_list_reweighted_sc_sorted;
+echo "Decoy_ID Cluster_no Member_ID I_sc reweighted_sc rmsBB_if" >cluster_list_I_sc_sorted;
+echo "Decoy_ID Cluster_no Member_ID I_sc reweighted_sc rmsBB_if" >cluster_list_reweighted_sc_sorted;
 sort -nk 4 cluster_list_sc | sort -u -k2,2 | sort -nk 4 | head -10 >>cluster_list_I_sc_sorted;
 sort -nk 5 cluster_list_sc | sort -u -k2,2 | sort -nk 5 | head -10 >>cluster_list_reweighted_sc_sorted;
 cd ../

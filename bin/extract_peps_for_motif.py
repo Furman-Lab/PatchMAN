@@ -32,20 +32,18 @@ Create initial complexes: extract peptides from proteins with motifs similar to 
 
 
 def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scrfxn, design):
-    """For each motif there are N matches. Currently I limit them to the 1000 best RMSD matches. Probably should
-    sample more distant matches too."""
+    """For each motif there are N matches. Take first 50 matches --> low RMSD,
+    and last 50 matches --> default cutoff is 1.5A)."""
     single_motif_complexes = 0
 
     start_motif = time.time()
-    print('Begin generating complexes for a motif')
-
     patch_pose = pose_from_pdb(patch)
 
     patch_name = patch.split('_')[0]
     log_name = patch_name + '.log'
 
     with open(log_name, 'w') as log:
-        log.write('Patch: %s\n'%patch_name)
+        log.write('Begin generating complexes for patch %s\n' % patch_name)
 
     print(matches)
     for match in matches:
@@ -60,9 +58,15 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
         match_to_report = motif_pdb + ': ' + ','.join([str(i) for i in indices])
 
         if not path.isfile(DB_PATH + motif_pdb.upper() + '.clean.pdb'):
-            pdb_pose = toolbox.pose_from_rcsb(motif_pdb)
+            try:
+                pdb_pose = toolbox.pose_from_rcsb(motif_pdb)
+            except RuntimeError:
+                continue
         else:
-            pdb_pose = pose_from_pdb(DB_PATH + motif_pdb.upper() + '.clean.pdb') # all pdbs are downloaded in the previous step (download_all_pdbs.sh)
+            try:
+                pdb_pose = pose_from_pdb(DB_PATH + motif_pdb.upper() + '.clean.pdb') # all pdbs are downloaded in the previous step (download_all_pdbs.sh)
+            except RuntimeError:
+                continue
 
         chain_breaks = []
         for jump in range(1, pdb_pose.num_chains()):
@@ -74,7 +78,6 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
             continue
 
         # filter short stretches
-        print('peplen: ' + str(plen))
         stretches = choose_stretches_only(env_res, chain_breaks, plen, tot_res)  # elongate and filter afterwards
 
         if not stretches:
@@ -84,7 +87,7 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
         for i, stretch in enumerate(stretches):
             complex_name = patch_name + '_' + motif_pdb + '_%s' % str(stretch[0]) + '_%s' % str(stretch[-1]) + '.pdb'
             try:
-                complex_pose = create_complex(receptor_pose, superimposed_pose, stretch, complex_name)
+                complex_pose = create_complex(receptor_pose, superimposed_pose, stretch, complex_name, log_name)
             except ValueError:
                 continue
 
@@ -103,6 +106,7 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
                                                 pep_template_seq, pepseq, stretch,rmsd)  # print the information about the motif and patch + alignments of the motifs and peps
                         with open(log_name, 'a') as log:
                             log.write(complex_inf)
+
                     system('rm -f {}'.format(complex_name))
                 else:
                     single_motif_complexes += 1
@@ -136,8 +140,8 @@ def compare_motif_seq_id(patch_pose, motif_pose, indices):
             motif_seq += motif_pdb_seq[i]
         except IndexError:
             print('IndexError!\n')
-            print('Patch: %s\n'%patch_pose.pdb_info().name())
-            print('Motif: %s\n'%motif_pose.pdb_info().name())
+            print('Patch: %s\n' % patch_pose.pdb_info().name())
+            print('Motif: %s\n' % motif_pose.pdb_info().name())
             return None, None
     return motif_seq, patch_seq
 
@@ -154,23 +158,60 @@ def thread_pepseq(complex_pose_name, complex_pose, pepseq, scrfxn):
         return True
 
 
-def create_complex(receptor, pose_to_cut, pep, complex_name):
+def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name):
     complex_pose = Pose()
-    complex_pose.assign(receptor)
+    complex_pose.assign(receptor_pose)
 
     core.pose.append_subpose_to_pose(complex_pose, pose_to_cut, int(pep[0]), int(pep[-1]), True)
+    
+    pep_residues = utility.vector1_unsigned_long()
+    for r in range(complex_pose.chain_begin(2), complex_pose.chain_end(2) + 1):
+        pep_residues.append(r)
+    pep_pose = Pose()
+    pep_pose.assign(complex_pose)
+    core.pose.pdbslice(pep_pose, pep_residues)
 
     complex_pose.dump_pdb(complex_name)
-
+    
+    with open(log_name, 'a') as log:
+        log.write('Complex %s\n' % complex_name)
+    #### NOTE
     #### I am not asking for pepchain, because for some reason it returns '^'
     #### In the chain filtering step I will take the chain which is not a receptor chain as a peptide chain
 
-    # New filtering: clashes and non-interacting chains
+    # First filtering: clashes and non-interacting chains
     is_possible_chain = find_relevant_chains(complex_name, CLASH_DIST, INTERACTION_DIST)
 
+    # Second filtering: BSA filtering
     if is_possible_chain:
-        return complex_pose
+        sasa_calc = core.scoring.sasa.SasaCalc()
+        cutoffs = {200: [3,4,5,6], 300: [7], 400: [8,9], 500: [10, 11, 12, 13], 600: [14, 15, 16, 17, 18, 19], 800: [20]}
+        # cutoffs = {150: [3], 200: [4,5,6], 300: [7,8,9,10], 400: [11,12,13], 500: [14,15,16], 600: [17,18,19], 700: [20]}
+        cur_cutoff = 200 # default value
+        for c in cutoffs.keys():
+            if len(pep) in cutoffs[c]:
+                cur_cutoff = c
+            elif len(pep) > 20:
+                cur_cutoff = 1000
+        complex_sasa = sasa_calc.calculate(complex_pose)
+        receptor_sasa = sasa_calc.calculate(receptor_pose)
+        pep_sasa = sasa_calc.calculate(pep_pose)
+        bsa = ((receptor_sasa + pep_sasa) - complex_sasa)/2
+        with open(log_name, 'a') as log:
+            log.write("Passed first filter\n")
+            log.write("Defined cutoff: %s\n" % cur_cutoff)
+            log.write('Complex: %s, Receptor: %s, Peptide: %s\n' % (complex_sasa, receptor_sasa, pep_sasa))
+            log.write("BSA: %s\n"%bsa)
+        if bsa >= cur_cutoff:
+            with open(log_name, 'a') as log:
+                log.write("%s passed second filter with BSA %s\n" % (complex_name, bsa))
+            return complex_pose
+        else:
+            with open(log_name, 'a') as log:
+                log.write(complex_name + ' is filtered by BSA: %s < %s\n' % (bsa, cur_cutoff))
     else:
+        with open(log_name, 'a') as log:
+            log.write(complex_name + ' is filtered because of clashes or non-interacting residues\n')
         return False
 
 
@@ -370,6 +411,6 @@ def main():
 
 if __name__ == "__main__":
 
-    init()  # for pyrosetta
+    init('-mute all')  # for pyrosetta
 
     main()
