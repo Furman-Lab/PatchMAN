@@ -20,3 +20,6 @@ containers/*
 !containers/rosetta.def
 !containers/python.def
 setup_python_env.sh
+*cif
+*list
+*txt
