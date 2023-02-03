@@ -11,7 +11,7 @@ die() {
 
 # if count_atom_lines greather than 0, then the file is a PDB file, return true
 validate_pdb() {
-  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {9}[A-Z ]{2}[A-Z ]{0,2}" $1)
+  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5,9}[A-Z ]{2}[A-Z ]{0,2}" $1)
   if [[ $count_atom_lines -gt 0 ]]; then
     return 0
   else
@@ -46,6 +46,7 @@ export VIRTUAL_ENV=/cs/labs/fora/projects/autopeptidb/staging/venv_PatchmanProto
 #activating virtual env (needed for various python libraries used in the protocol)
 . $VIRTUAL_ENV/bin/activate || die "No virtual environment detected. Please install it first by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
 export PYTHONPATH=''
+export PYTHON=python3 # TODO: from environment file
 module load openmpi/2.1.6
 
 # Defaults
@@ -56,6 +57,7 @@ min_rec_bb="true"
 nstruct=1
 master_cutoff="1.5"
 step=1
+verbose=False
 
 usage() {
 	cat <<-USAGE
@@ -190,7 +192,7 @@ then
 	echo "MASTER pds files were created for all motifs"
 	n_searches=$(wc -l motif_list | gawk '{print $1}')
 fi
-exit 0
+
 # Step 2: Prepack receptor
 if [[ $step -le 2 ]]
 then
@@ -224,6 +226,7 @@ fi
 # Step 6: Clustering & Step 6: Finalizing
 if [[ $step -le 6 ]]
 then
+	echo "Running final steps"
 	fpd_jid=$(zero_jobid $fpd_jid)
 	clustering_jid=$(sbatch \
 					--job-name=clustering \
