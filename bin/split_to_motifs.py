@@ -15,19 +15,130 @@ NEIGHBORS_DIST = 10
 BACKBONE_ATOMS = ['C', 'CA', 'O', 'N']
 MAX_STRETCH_LEN = 7
 MAX_HELIX_LEN = 11
-def define_motifs(pose, pdb_name, mask_pose=None, focus_mode=False):
+RATIO_ALLOWED_MASKED_RESIDUES = 0.3 # added for masking
 
+
+def create_motif_with_chains (pdbinf, motif):
+    """
+    Function to create a list of tuples with the chain and the residue number
+    :param pdbinf: pdb_info object for the pose
+    :param motif: motif with rosetta numbering
+    :return: motif as a tuple with chain and residue number
+    """
+    motif_with_chains = [(pdbinf.chain(int(resn)), str(pdbinf.number(int(resn)))) for resn in motif]
+    return motif_with_chains
+
+def convert_rosetta_numbering_to_pdb_numbering(pose, resn_list):
+    """
+    Function to convert the numbering of the residues from Rosetta numbering to PDB numbering
+    :param pose: input pose
+    :param resn_list: list of residue numbers in Rosetta numbering
+    :return: list of residue numbers in PDB numbering
+    """
+    pdbinf = pose.pdb_info()
+    pdb_number_resn_list = []
+    for resn in resn_list:
+        pdb_number_resn_list.append(pdbinf.number(int(resn)))
+        
+    return pdb_number_resn_list
+
+def check_mask_on_motif(pdbinf, motif, mask_res, debug=False):
+    """
+    Function to check if the motif contains masked residues over a certain threshold
+    :param motif: list of residues that are in the motif
+    :param mask_res: list of residues that are masked
+    :return: the motif with the chains, which contain nothing if the motif is masked
+    """
+    motif_with_chains = []
+    motif_length = len(motif)
+    min_unmasked_length = motif_length * (1 - RATIO_ALLOWED_MASKED_RESIDUES)
+    
+    # get the residues that are not in the mask
+    unmasked_motif = list(set(motif) - set(mask_res))
+    unmasked_length = len(unmasked_motif)
+    
+    if debug:
+        print('Comparing motif and mask_res:\nmotif: ', motif, '\nmasks: ', mask_res)
+        print('Unmasked motif residues: ', unmasked_motif)
+    
+    # break the loop if too many residues are masked
+    if unmasked_length > min_unmasked_length:
+        motif_not_masked = True
+        motif_with_chains = create_motif_with_chains(pdbinf, motif)
+    else:
+        motif_not_masked = False
+    
+    if debug:
+        ratio_of_masked = round((motif_length - unmasked_length) / motif_length * 100, 0)
+        print("{unmasked}/{motiflen} =  residues in the motif are unmasked ({ratio}% masked). Motif kept: {kept}".format(
+            motiflen=motif_length, unmasked=unmasked_length, ratio=ratio_of_masked, kept=motif_not_masked))
+        print('#####################################')
+    
+    return motif_with_chains
+
+def modify_selected_resi(pdbinf, selected_res, check_pose, focus=False, debug=False):
+    """
+    Function to modify the list of selected residues. If the residue is not in focus, it is removed from the list.
+    If the residue is in focus, it is added to the list.
+    :param pdbinf: pdb_info object for the pose
+    :param selected_res: list of selected residues
+    :param check_resi: list of residues to check
+    :param focus: if True, add residues to the list, if False, remove residues from the list
+    :param debug: print info
+    :return: modified list of selected residues
+    """
+    check_resi = pyrosetta.rosetta.core.pose.get_resnums_for_chain_id(check_pose, 1)
+
+    # convert the rosetta numbering to pdb numbering for comparison
+    pdb_number_check_resi = convert_rosetta_numbering_to_pdb_numbering(check_pose, check_resi)
+    
+    for i, res in enumerate(selected_res, 1):
+        pdb_number = pdbinf.number(i)
+        if res:
+            if focus: # if we want to focus on the residues, we need to set the residues that are not in focus to False
+                if pdb_number not in pdb_number_check_resi:
+                    selected_res[i] = False
+            else: # if we want to mask the residues, we need to set the residues that are in mask to False
+                if pdb_number in pdb_number_check_resi:
+                    selected_res[i] = False
+    
+    if focus:
+        return selected_res
+    else:
+        return [selected_res, check_resi]
+
+def define_motifs(pose, pdb_name, mask_pose=None, focus_pose=None, debug=False):
+    """
+    Function to extract motifs from the receptor. Motifs are defined as patches of residues that are close to each other.
+    :param pose: input receptor
+    :param pdb_name: basename of the receptor, extracted from the filename
+    :param mask_pose: masked residues that we do not want to include in a patch
+    :param focus_pose: residues that we would like to focus on as a binding site
+    :param debug: print info
+    :return: list of extracted motifs
+    """
+    
     surf_sel = utils.create_layer_selector()
     selected_res = surf_sel.apply(pose)
-    include_focus = True
-    neighborhood_selector = utils.create_neighborhood_selector(NEIGHBORS_DIST, include_focus)
+    pdbinf = pose.pdb_info()
+    
+    if focus_pose is not None:
+        selected_res = modify_selected_resi(pdbinf, selected_res, focus_pose, focus=True, debug=debug)
+    elif mask_pose is not None:
+        selected_res, mask_resi = modify_selected_resi(pdbinf, selected_res, mask_pose, focus=False, debug=debug)
 
+    # print out residues that are selected as focus points
+    if debug:
+        print_text = "Residues selected as focus points: "
+        for i, res in enumerate(selected_res, 1):
+            if res:
+                print_text += str(pdbinf.number(i)) + " "
+        print(print_text)
+    
+    include_focus_resi = True # Alisa's original implementation, now set to true
+    neighborhood_selector = utils.create_neighborhood_selector(NEIGHBORS_DIST, include_focus_resi)
     motifs_created = [] # save here res indexes around which patches were created
     motifs_with_chains = [] # residues and chains [('A', '2'), ('A', '3'), ('A', '4')]
-
-    pdbinf = pose.pdb_info()
-    if mask_pose is not None:
-        mask_pose_pdbinf = mask_pose.pdb_info()
 
     all_motifs_list = []
     num = 1
@@ -36,54 +147,29 @@ def define_motifs(pose, pdb_name, mask_pose=None, focus_mode=False):
         if i <= 2:  # skip first 2 res (too small, overlapping patches)
             continue
         if res:
-            if i in motifs_created: # skip every second patch (to prevent too overlapping patches)
+            # skip every second patch (to prevent too overlapping patches), unless if we are in focus mode
+            if i in motifs_created and focus_pose is None:
                 continue
 
-            # if focus mode is on, do not use residues as patch center that are not in the focus pose
-            focus_res_chain = pdbinf.chain(int(i))
-            focus_res_number = pdbinf.number(int(i))
-            if focus_mode:
-                if mask_pose_pdbinf.pdb2pose(focus_res_chain, focus_res_number) == 0:
-                    continue
-            focus = utils.create_index_selector([i])
-            neighborhood_selector.set_focus(focus.apply(pose))
+            center_res = utils.create_index_selector([i])
+            neighborhood_selector.set_focus(center_res.apply(pose))
             atoms = pyrosetta.rosetta.utility.vector1_std_string()
             atoms.append('CA')
             neighborhood_selector.set_atom_names_for_distance_measure(atoms)
             new_motif_sel = neighborhood_selector.apply(pose)
-
-            motif = list(map(str, core.select.residue_selector.selection_positions(new_motif_sel)))
+            
+            motif_residues = core.select.residue_selector.selection_positions(new_motif_sel)
+            motif = list(map(str, motif_residues))
             refine_motif(motif, pose)
 
             motif_not_masked = True
             number_of_masked_residues = 0
             if mask_pose is not None:
-                motif_with_chains = []
-                motif_length = len(motif)
-                
-                required_unmasked_length = motif_length * RATIO_ALLOWED_MASKED_RESIDUES
-                for resn in motif: # checking for masked residues in the motif
-                    resi_in_mask = mask_pose_pdbinf.pdb2pose(motif_res_chain, motif_res_number)
-                    motif_res_chain = pdbinf.chain(int(resn))
-                    motif_res_number = pdbinf.number(int(resn))
-
-                    if resi_in_mask == 0: # if pdb chain and residue are not in mask, add to motif
-                        motif_with_chains.append((motif_res_chain, str(motif_res_number)))
-                    else:
-                        number_of_masked_residues += 1
-                    
-                    # break the loop if too many residues are masked
-                    if number_of_masked_residues > required_unmasked_length:
-                        motif_not_masked = False
-                        break
-                        
-                ratio_of_masked = round(number_of_masked_residues/motif_length, 2)
-                print("{masked}/{motiflen} =  {ratio} residues in the motif are masked. Motif kept: {kept}".format(motiflen=motif_length,
-                                                    masked=number_of_masked_residues, ratio=ratio_of_masked, kept=motif_not_masked))
+                motif_with_chains = check_mask_on_motif(pdbinf, motif_residues, mask_resi, debug=debug)
             else:
-                motif_with_chains = [(pdbinf.chain(int(resn)), str(pdbinf.number(int(resn)))) for resn in motif]
+                motif_with_chains = create_motif_with_chains(pdbinf, motif)
 
-            if motif_not_masked: # add checking if motif contained masked residues
+            if len(motif_with_chains) > 0: # add checking if motif contained masked residues
                 motifs_created.append(i+1)
                 if motif_with_chains not in motifs_with_chains:
                     motifs_with_chains.append(motif_with_chains)
@@ -146,12 +232,19 @@ def refine_motif(motif, pose):
 
 
 def is_helix(stretch, s):
+    """Check if stretch is helix"""
     if s[int(stretch[0]):int(stretch[-1]) + 1].count('H') >= 3:
         return True
     else:
         return False
     
 def load_and_clean_pdb(pdb_file, return_name=False):
+    """Load and clean pdb file
+    :param pdb_file: pdb file
+    :param return_name: return name of the protein
+    :return: pose and name of the protein if asked for
+    """
+    
     toolbox.cleaning.cleanATOM(pdb_file)
     prot_name = os.path.splitext(os.path.basename(pdb_file))[0]
     pose = pose_from_pdb(prot_name+'.clean.pdb')
@@ -167,7 +260,7 @@ def main():
     parser.add_argument('-i', '--input', help='Input PDB file', required=True)
     parser.add_argument('-f', '--focus', help='Focus mask PDB file, with the residues that should form the interface', required=False, default=None)
     parser.add_argument('-m', '--mask', help='Mask PDB file, with residues that should not be on the interface', required=False, default=None)
-    
+    parser.add_argument('-v', '--verbose', help='For debugging purposes', required=False, action='store_true', default=False)
     args = parser.parse_args()
     
     if args.mask is not None and args.focus is not None:
@@ -177,25 +270,28 @@ def main():
     # load receptor pose
     pose, prot_name = load_and_clean_pdb(args.input, return_name=True)
 
-    if args.mask is not None: # mask PDB file, containing residues NOT to use
+    # mask PDB file, containing residues NOT to use
+    if args.mask is not None:
         print('reading masking residues from: ' + args.mask )
         mask_pose = load_and_clean_pdb(args.mask)
-        motifs = define_motifs(pose, prot_name, mask_pose)
-    elif args.focus is not None: # focus PDB file, containing residues to be included in the interface
+        motifs = define_motifs(pose, prot_name, mask_pose=mask_pose, debug=args.verbose)
+    # focus PDB file, containing residues to be included in the interface
+    elif args.focus is not None:
         print('reading focus residues from: ' + args.focus )
         focus_pose = load_and_clean_pdb(args.focus)
-        motifs = define_motifs(pose, prot_name, focus_pose, focus_mode=True)
+        motifs = define_motifs(pose, prot_name, focus_pose=focus_pose, debug=args.verbose)
+    # if no mask or focus file is provided, use the whole protein
     else:
-        motifs = define_motifs(pose, prot_name)
+        motifs = define_motifs(pose, prot_name, debug=args.verbose)
 
     print("The surface was split into " + str(len(motifs)) + " patches")
 
 
 if __name__ == "__main__":
 
-    pyrosetta.init('-mute warning -mute info -mute debug -mute trace -mute core.select.residue_selector.NeighborhoodResidueSelector -mute core')
+    pyrosetta.init('-mute core.select.residue_selector.NeighborhoodResidueSelector -mute core')
 
     main()
 
 
-RATIO_ALLOWED_MASKED_RESIDUES = 0.8 # added for masking
+
