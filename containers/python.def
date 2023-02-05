@@ -13,9 +13,9 @@ From: python:3.5.6
 %setup
 
 %files
-	/vol/ek/Home/jvarga/works/PatchMAN-forServer/bin/* python_scripts
-	/vol/ek/Home/jvarga/works/PatchMAN-forServer/requirements.txt .
-	/vol/ek/Home/jvarga/works/PatchMAN-forServer/pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl  .
+	../bin/* python_scripts
+	../requirements.txt .
+	../containers/pyrosetta-2020.25+release.d2d9f90-cp35-cp35m-linux_x86_64.whl  .
 
 %post
 	# Install system packages that are needed for installing python packages

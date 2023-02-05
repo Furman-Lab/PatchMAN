@@ -18,15 +18,16 @@ From: debian
 	tar -xzf mslib.tar.gz -C $SINGULARITY_ROOTFS/
 
 %files
-	bin/master.patch .
+	../bin/master.patch .
 
 %post
 	# Install system packages that are needed for building Rosetta
 	apt -y update
-	apt -y install curl make build-essential
+	apt -y install curl make build-essential dos2unix
 
 	# Patch	MASTER to provide the translation rotation matrix as an output
 	cp master/src/Match.cpp master/src/Match_old.cpp
+	dos2unix master/src/Match.cpp
 	patch -l master/src/Match.cpp master.patch
 
 	# Compile MASTER

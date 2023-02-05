@@ -32,18 +32,20 @@ Create initial complexes: extract peptides from proteins with motifs similar to 
 
 
 def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scrfxn, design):
-    """For each motif there are N matches. Take first 50 matches --> low RMSD,
-    and last 50 matches --> default cutoff is 1.5A)."""
+    """For each motif there are N matches. Currently I limit them to the 1000 best RMSD matches. Probably should
+    sample more distant matches too."""
     single_motif_complexes = 0
 
     start_motif = time.time()
+    print('Begin generating complexes for a motif')
+
     patch_pose = pose_from_pdb(patch)
 
     patch_name = patch.split('_')[0]
     log_name = patch_name + '.log'
 
     with open(log_name, 'w') as log:
-        log.write('Begin generating complexes for patch %s\n' % patch_name)
+        log.write('Patch: %s\n'%patch_name)
 
     print(matches)
     for match in matches:
@@ -56,15 +58,16 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
         indices = [r + 1 for m_stretch in motif_stretches for r in m_stretch]  # the numbering in master output is from 0
 
         match_to_report = motif_pdb + ': ' + ','.join([str(i) for i in indices])
+        pdb_path = DB_PATH + motif_pdb.upper() + '.clean.pdb'
 
-        if not path.isfile(DB_PATH + motif_pdb.upper() + '.clean.pdb'):
+        if not path.isfile(pdb_path):
             try:
                 pdb_pose = toolbox.pose_from_rcsb(motif_pdb)
             except RuntimeError:
                 continue
         else:
             try:
-                pdb_pose = pose_from_pdb(DB_PATH + motif_pdb.upper() + '.clean.pdb') # all pdbs are downloaded in the previous step (download_all_pdbs.sh)
+                pdb_pose = pose_from_pdb(pdb_path) # all pdbs are downloaded in the previous step (download_all_pdbs.sh)
             except RuntimeError:
                 continue
 

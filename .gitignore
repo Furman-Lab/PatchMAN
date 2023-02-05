@@ -19,7 +19,9 @@ containers/*
 !containers/master.def
 !containers/rosetta.def
 !containers/python.def
+!containers/mpitest.c
 setup_python_env.sh
+databases/
 *cif
 *list
 *txt

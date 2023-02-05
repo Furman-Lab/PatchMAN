@@ -1,8 +1,18 @@
 #!/bin/bash
-# The PatchMAN protocol.
-# It sends jobs asynchronously via Slurm. It is very important that this scripts
-# returns as fast as possible, as it is called periodically by the daemon, so all actions here needs to
-# to be fast - no copying large files, running external scripts synchronously etc.
+
+###########################################################
+#                  The PatchMAN protocol                  #
+#                                                         #
+# The protocol splits the surface into patches, then      #
+# searches PDB30 with these to find peptide fragments     #
+# that can complement them. These are extracted and used  #
+# as templates for docking the peptide.                   #
+# This script sends jobs asynchronously via Slurm, using  #
+# Singularity containers.                                 #
+#                                                         #
+#           Created by Furman Lab at HUJI, 2022.          #
+###########################################################
+
 
 die() {
 	echo >&2 -e "\nERROR: $@\n"
@@ -11,7 +21,7 @@ die() {
 
 # if count_atom_lines greather than 0, then the file is a PDB file, return true
 validate_pdb() {
-  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5,9}[A-Z ]{2}[A-Z ]{0,2}" $1)
+  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {9}[A-Z ]{2}[A-Z ]{0,2}" $1)
   if [[ $count_atom_lines -gt 0 ]]; then
     return 0
   else
@@ -62,9 +72,11 @@ verbose=False
 usage() {
 	cat <<-USAGE
 	Usage: ${0##*/} [opts] RECEPTOR PEPTIDE_SEQUENCE
-	TODO: describe
+	PatchMAN performs search on existing protein monomers and complexes with structural motifs extracted from the query receptor and extract complementary fragments to be used as templates for peptide-protein interactions.
 
-		TODO: replace this with real options
+		RECEPTOR: PDB file with the receptor protein
+		PEPTIDE_SEQUENCE can include modified residues in "GFK[SER:phosphorylated]RAD" format.
+
         	-m minimize receptor backbone (default: false)
 					-g log file (Default is stdout)
 					-e error log file (Default is stderr)
@@ -134,9 +146,10 @@ shift "$((OPTIND-1))"
 pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # remove PTMs for validation of the rest of the peptide
 [[ "$pep_sequence_to_validate" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2" # modified for PTM
 
+############### PREPARE JOB ###############
 # Creating a directory for the job and copying inputs to it
 receptor=$(readlink -f $1)
-pep_sequence=$2
+pep_sequence="$2"
 
 pushd $work_dir > /dev/null
 

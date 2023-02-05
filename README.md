@@ -15,7 +15,7 @@ The protocol consists of 4 consecutive steps: (1) Definition of surface patches 
 ### Installation
 
 #### Downloading software and data
-1. Obtain [Rosetta](https://www.rosettacommons.org/software/license-and-download) and [PyRosetta](https://www.pyrosetta.org/downloads/legacy-pyrosetta3-download) licenses.
+1. Obtain [Rosetta](https://els2.comotion.uw.edu/product/rosetta) and [PyRosetta](https://els2.comotion.uw.edu/product/pyrosetta) licenses.
 2. Register for [MASTER v1.6](https://grigoryanlab.org/index.php?sec=get&soft=MASTER) and obtain download URL.
 3. Create a .env file to contain login information: ```cp sample.env .env```
 4. Edit `.env` file with the Rosetta and PyRosetta usernames and passwords and MASTER's URL.
@@ -24,27 +24,45 @@ The protocol consists of 4 consecutive steps: (1) Definition of surface patches 
 :exclamation: Note: Running MPI in Singularity containers require that the version of the hose and container MPI match. The script automatically detects the version of host OpenMPI (required to speed up FlexPepDock runs) and downloads it. If the container is not built on the host computer that will run it, the variable OMPI_VERSION might need to be manually modified.
 
 
-#### Installation with Singularity containers
+#### Option 1: Installation with Singularity containers (recommended)
 
-Three singularity definition files are provided for compiling MASTER, Rosetta and PyRosetta together with all the required python scripts. The images can be built with
-
+Three singularity definition files are provided for compiling MASTER, Rosetta and PyRosetta together with all the required python scripts. 
+How you need to build singularity images might be system dependent, as it requires sudo. For example, you might need to run virtual machines or other similar systems. The images can be built with:
 ```
 sudo singularity build rosetta.sif rosetta.def # compiling Rosetta can take significant amount of time
 sudo singularity build python.sif python.def
 sudo singularity build master.sif master.def # this also takes care of patching PatchMAN
 ```
+#### Option 2: Installation without containers
 
-#### Installation without containers
-
-- The required python packages can be installed with `pip install -r requirements.txt`
-- Install [PyRosetta](https://www.pyrosetta.org/downloads/legacy-pyrosetta3-download) and [Rosetta](https://www.rosettacommons.org/software/license-and-download) from the downloaded rosetta.tar.gz and wheel files.
+- To install python packages and [PyRosetta](https://www.pyrosetta.org/downloads), create a virtual environment and activate it. One example:
+    ```
+    virtualenv patchman --python=python3
+    source patchman/bin/activate  # or activate.csh, based on your shell type
+    pip3 install -r requirements.txt # install required packages
+    python3 --version # get your Python3 version
+    ```
+    Download PyRosetta wheel that matches your python3 version and your OS with the link, username and password sent [after registration](https://els2.comotion.uw.edu/product/pyrosetta).
+    ```
+    pip3 install <downloaded pyrosetta wheel> 
+    ```
+    To get support on PyRosetta and its installation, visit: https://www.pyrosetta.org/downloads
+- Install Rosetta from the downloaded rosetta.tar.gz with mpi support. You can change the number of used cores (-j argument) according to your system
+    ```
+    cd containers/
+    mkdir rosetta
+    tar -xzf rosetta.tar.gz -C rosetta --strip-components=1
+    cd rosetta/main/source 
+    python scons.py -j 4 extras=mpi,serialization mode=release bin/FlexPepDocking.mpiserialization.linuxgccrelease bin/cluster.mpiserialization.linuxgccrelease
+    ```
+    For further support on Rosetta installation, please refer to the documentation.
 - Set up MASTER
-  - The downloaded source code needs a slight modification for running PatchMAN. This can be done in 2 different ways:
-    -  Programatically: use the patch file in the `bin/` directory and issue:
-
-        ```patch -l path_to_master/src/Match.cpp bin/master.patch```
-
-    -  Manually: Go to line 107 in the `Match.cpp` file and add the following code (before ```return os;```):
+  - The downloaded source code needs a slight modification for running PatchMAN . This can be done in 2 different ways:
+    -  Programatically (using the patch file in the `bin/` directory):
+        ```
+        patch -l master/src/Match.cpp bin/master.patch
+        ```
+    -  Manually: Go to line 107 in the `Match.cpp` file and add the following code (before `return os;`):
 
         ```
         double *T=((Match*)(&m))->getTranslation();
@@ -55,16 +73,19 @@ sudo singularity build master.sif master.def # this also takes care of patching 
                      << R[1][0] << " " << R[1][1] << " " << R[1][2] << " "
                      << R[2][0] << " " << R[2][1] << " " << R[2][2] << " ===" ;
         ```
-
-  - Follow the instruction in the INSTALL file to compile MASTER
-
+  - After patching, compile master with
+      ```
+      cd master 
+      make all
+      ```
+    For further info and support on MASTER, please read the INSTALL and [MASTER's homepage](https://grigoryanlab.org/master/)
 ---
 
 ### Quick start
 
 PatchMAN can be run with:
 
-```bash PatchMAN_protocol.sh <arguments> RECEPTOR PEPTIDE```
+`bash PatchMAN_protocol.sh <arguments> RECEPTOR PEPTIDE`
 
 where RECEPTOR is a PDB file and PEPTIDE is the peptide sequence to be docked.
 The peptide can contain post-translational modifications, denoted by Rosetta standards, e.g. `[SER:phosphorylated]`. The available PTMs can be listed with
