@@ -211,7 +211,7 @@ then
 	echo "MASTER pds files were created for all motifs"
 	n_searches=$(wc -l motif_list | gawk '{print $1}')
 fi
-exit
+
 
 # Step 2: Prepack receptor
 if [[ $step -le 2 ]]
