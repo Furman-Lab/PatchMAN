@@ -180,9 +180,9 @@ def define_motifs(pose, pdb_name, mask_pose=None, focus_pose=None, debug=False):
                     all_motifs_list.append(motif_name) # is this the right level of indentation?
                     focus_res_motif.append(['%03d' % num, str(pdbinf.number(int(i))), ','.join(motif)])
         
-    with open('focus_res_motif.txt', 'w') as f:
+    with open(pdb_name + '_focus_res_motif.txt', 'w') as f:
         for l in focus_res_motif:
-            f.write(' '.join(l) + '\n')
+            f.write(pdb_name + ' ' + ' '.join(l) + '\n')
 
     return all_motifs_list
 

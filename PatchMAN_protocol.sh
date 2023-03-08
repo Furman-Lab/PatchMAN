@@ -40,24 +40,24 @@ zero_jobid() {
 
 [ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: $PROTOCOL_ROOT"
 
-export PROTOCOL_ROOT=$(dirname $(realpath $BASH_SOURCE)) # changed for development purposes but could probably stay like that
+###########################################################
+# Set protocol root based on the path of this script.
+export PROTOCOL_ROOT=$(dirname $(realpath ${BASH_SOURCE}))
+source ${PROTOCOL_ROOT}/.env $PROTOCOL_ROOT
 export BIN_DIR=${PROTOCOL_ROOT}/bin
-
-export ROSETTA_DB=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/database
-export ROSETTA_BIN=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/source/bin
-export ROSETTA_TOOLS=/vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/tools
-export MASTER=/vol/ek/share/master_forPatchMAN
-
-export PATH=.:${BIN_DIR}:/vol/ek/share/labscripts:/vol/ek/share/bin:usr/local/bin:/usr/bin:/bin:/usr/X11R6/bin:/usr/lib/mh:/etc/alternatives/slurm/bin:/vol/slurm/picasso/bindir/bin/
-export VIRTUAL_ENV=/cs/labs/fora/projects/autopeptidb/staging/venv_PatchmanProtocol
-#export VIRTUAL_ENV=/cs/labs/fora/projects/autopeptidb/staging/virtualenv-linux
-
-
-#activating virtual env (needed for various python libraries used in the protocol)
-. $VIRTUAL_ENV/bin/activate || die "No virtual environment detected. Please install it first by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
-export PYTHONPATH=''
-export PYTHON=python3 # TODO: from environment file
-module load openmpi/2.1.6
+export PATH=.:${BIN_DIR}:${PATH}
+export PYTHONPATH="" # messes up python packages inside the container otherwise
+[ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: ${PROTOCOL_ROOT}"
+###########################################################
+if [[ "$VIRTUAL_ENV" == '' ]]
+then
+        export PYTHON=$(echo $PYTHON | sed "s#PROTOCOL_ROOT#${PROTOCOL_ROOT}#g")
+else
+        . $VIRTUAL_ENV/bin/activate || die "No virtual environment detected. Please install it first by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
+        export PYTHON="python3 "
+fi
+###########################################################
+module try-load openmpi/2.1.6
 
 # Defaults
 work_dir=$(pwd)
@@ -89,8 +89,6 @@ usage() {
 	        -f focus mask, with residues that are in the binding site (type: pdb file, Default: None)
 	        -p step to start from (Default: 1, 1: split to motifs, 2: prepack receptor, 3: run MASTER,
 	        												4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)
-
-
 	USAGE
 }
 
@@ -151,7 +149,7 @@ pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # 
 receptor=$(readlink -f $1)
 pep_sequence="$2"
 
-pushd $work_dir > /dev/null
+pushd $work_dir > /dev/null || exit
 
 # Prepare receptor
 # if validate_pdb returns 0, then the receptor is valid
@@ -206,6 +204,7 @@ then
 	fi
 
 	python ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args
+	exit
 	ls ???'_'$rec_name'.pdb' > motif_list
 	$MASTER/createPDS --type query --pdbList motif_list >& /dev/null # remove the long stdout
 	echo "MASTER pds files were created for all motifs"
