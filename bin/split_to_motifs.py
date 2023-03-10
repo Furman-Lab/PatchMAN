@@ -1,5 +1,3 @@
-
-
 from pyrosetta import *
 from pyrosetta.rosetta import *
 
@@ -244,7 +242,7 @@ def load_and_clean_pdb(pdb_file, return_name=False):
     :param return_name: return name of the protein
     :return: pose and name of the protein if asked for
     """
-    
+
     toolbox.cleaning.cleanATOM(pdb_file)
     prot_name = os.path.splitext(os.path.basename(pdb_file))[0]
     pose = pose_from_pdb(prot_name+'.clean.pdb')
@@ -255,6 +253,10 @@ def load_and_clean_pdb(pdb_file, return_name=False):
         return pose
 
 def main():
+
+    # cd into working directory - important for singularity
+    os.chdir(os.getenv('work_dir'))
+    
     # set up 3 arguments with argparse: -i, -f and -m
     parser = argparse.ArgumentParser(description='Create motifs from a protein structure')
     parser.add_argument('-i', '--input', help='Input PDB file', required=True)

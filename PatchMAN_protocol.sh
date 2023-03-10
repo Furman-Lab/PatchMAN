@@ -21,7 +21,7 @@ die() {
 
 # if count_atom_lines greather than 0, then the file is a PDB file, return true
 validate_pdb() {
-  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {9}[A-Z ]{2}[A-Z ]{0,2}" $1)
+  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5}[A-Z ]{3}[A-Z ]{0,2}[A-Z].{2}" $1)
   if [[ $count_atom_lines -gt 0 ]]; then
     return 0
   else
@@ -57,7 +57,7 @@ else
         export PYTHON="python3 "
 fi
 ###########################################################
-module try-load openmpi/2.1.6
+#module try-load openmpi/2.1.6
 
 # Defaults
 work_dir=$(pwd)
@@ -105,7 +105,7 @@ while getopts :hvw:g:c:t:f:s:n:m:p:f: opt; do
 		  master_cutoff=$OPTARG
 		  ;;
 		w)
-			work_dir=$OPTARG
+			export work_dir=$(realpath $OPTARG)
 			;;
 		t)
 			nstruct=$OPTARG
@@ -149,6 +149,8 @@ pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # 
 receptor=$(readlink -f $1)
 pep_sequence="$2"
 
+# Create output directory if does not exist, and cd into it
+mkdir -p $work_dir
 pushd $work_dir > /dev/null || exit
 
 # Prepare receptor
@@ -203,20 +205,19 @@ then
 		args="$args -v"
 	fi
 
-	python ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args
-	exit
+	$PYTHON ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args
+
 	ls ???'_'$rec_name'.pdb' > motif_list
 	$MASTER/createPDS --type query --pdbList motif_list >& /dev/null # remove the long stdout
 	echo "MASTER pds files were created for all motifs"
 	n_searches=$(wc -l motif_list | gawk '{print $1}')
 fi
-exit
 
 # Step 2: Prepack receptor
 if [[ $step -le 2 ]]
 then
 	prepack_receptor_jid=$(sbatch --job-name=prepack_receptor --get-user-env --time=90:00:00\
-	                --mem=1600m prepack_receptor.sh $clean_rec | awk '{print $NF}')
+	                --mem=1600m prepare_input.sh $clean_rec | awk '{print $NF}')
 fi
 
 # Step 3: Run MASTER

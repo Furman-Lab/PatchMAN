@@ -7,7 +7,7 @@ From: ubuntu:20.04
 # This definition file is used for creating an image for  #
 # Rosetta, with MPI support. Files for setting up both    #
 # are downloaded by download_data_and_software.sh. The    #
-# MPI version needs to match with the host MPI's          #
+# MPI version needs to match with the host MPI's.          #
 #                                                         #
 #         Created by Furman Lab at HUJI, 2022.            #
 ###########################################################
