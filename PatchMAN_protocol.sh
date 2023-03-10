@@ -217,21 +217,30 @@ fi
 if [[ $step -le 2 ]]
 then
 	prepack_receptor_jid=$(sbatch --job-name=prepack_receptor --get-user-env --time=90:00:00\
-	                --mem=1600m prepare_input.sh $clean_rec | awk '{print $NF}')
+	                --mem=1600m ${BIN_DIR}/prepare_input.sh $clean_rec | awk '{print $NF}')
 fi
 
 # Step 3: Run MASTER
 if [[ $step -le 3 ]]
 then
 	prepack_receptor_jid=$(zero_jobid $prepack_receptor_jid)
-	run_master_jid=$(sbatch --dependency=afterok:"${prepack_receptor_jid}" --array=0-"$n_searches"%50 run_master.sh $master_cutoff | awk '{print $NF}')
+	if [[ $verbose == True ]]
+	then
+		echo "DEBUG| PREPACK JOBID: " $prepack_receptor_jid
+	fi
+	echo sbatch --dependency=afterok:"${prepack_receptor_jid}" --array=0-"$n_searches"%50 ${BIN_DIR}/run_master.sh $master_cutoff
+	run_master_jid=$(sbatch --dependency=afterok:"${prepack_receptor_jid}" --array=0-"$n_searches"%50 ${BIN_DIR}/run_master.sh $master_cutoff | awk '{print $NF}')
 fi
 
 # Step 4: Extract templates
 if [[ $step -le 4 ]]
 then
 	run_master_jid=$(zero_jobid $run_master_jid)
-	extract_templates_jid=$(sbatch --array=0-"$n_searches"%50 --dependency=after:"${run_master_jid}" run_extract_templates.sh \
+	if [[ $verbose == True ]]
+	then
+		echo "DEBUG| MASTER JOBID: " $run_master_jid
+	fi
+	extract_templates_jid=$(sbatch --array=0-"$n_searches"%50 --dependency=afterany:"${run_master_jid}" ${BIN_DIR}/run_extract_templates.sh \
 	                    "$pep_sequence" "$ppkrec" | awk '{print $NF}')
 fi
 
@@ -239,13 +248,22 @@ fi
 if [[ $step -le 5 ]]
 then
 	extract_templates_jid=$(zero_jobid $extract_templates_jid)
+	if [[ $verbose == True ]]
+	then
+		echo "DEBUG| EXTRACT TEMPLATES JOBID: " $extract_templates_jid
+	fi
 	fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
-						fpd.sh "$clean_rec" "$min_rec_bb" "$nstruct" | awk '{print $NF}')
+						${BIN_DIR}/fpd.sh "$clean_rec" "$min_rec_bb" "$nstruct" | awk '{print $NF}')
 fi
 
 # Step 6: Clustering & Step 6: Finalizing
 if [[ $step -le 6 ]]
 then
+	if [[ $verbose == True ]]
+	then
+		echo "DEBUG| FPD JOBID: " $fpd_jid
+	fi
+
 	echo "Running final steps"
 	fpd_jid=$(zero_jobid $fpd_jid)
 	clustering_jid=$(sbatch \
