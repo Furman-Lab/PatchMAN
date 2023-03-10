@@ -21,7 +21,7 @@ die() {
 
 # if count_atom_lines greather than 0, then the file is a PDB file, return true
 validate_pdb() {
-  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5}[A-Z ]{3}[A-Z ]{0,2}[A-Z].{2}" $1)
+  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {9}[A-Z ]{2}[A-Z ]{0,2}" $1)
   if [[ $count_atom_lines -gt 0 ]]; then
     return 0
   else
@@ -89,6 +89,8 @@ usage() {
 	        -f focus mask, with residues that are in the binding site (type: pdb file, Default: None)
 	        -p step to start from (Default: 1, 1: split to motifs, 2: prepack receptor, 3: run MASTER,
 	        												4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)
+
+
 	USAGE
 }
 
@@ -253,7 +255,7 @@ then
 		echo "DEBUG| EXTRACT TEMPLATES JOBID: " $extract_templates_jid
 	fi
 	fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
-						${BIN_DIR}/fpd.sh "$clean_rec" "$min_rec_bb" "$nstruct" | awk '{print $NF}')
+						fpd.sh "$clean_rec" "$min_rec_bb" "$nstruct" | awk '{print $NF}')
 fi
 
 # Step 6: Clustering & Step 6: Finalizing
