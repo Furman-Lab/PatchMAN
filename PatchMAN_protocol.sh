@@ -233,7 +233,6 @@ then
 	then
 		echo "DEBUG| PREPACK JOBID: " $prepack_receptor_jid
 	fi
-	echo sbatch --dependency=afterok:"${prepack_receptor_jid}" --array=0-"$n_searches"%50 ${BIN_DIR}/run_master.sh $master_cutoff
 	run_master_jid=$(sbatch --dependency=afterok:"${prepack_receptor_jid}" --array=0-"$n_searches"%50 ${BIN_DIR}/run_master.sh $master_cutoff | awk '{print $NF}')
 fi
 
@@ -266,9 +265,8 @@ then
 
 	if [ -z "$nstruct" ]
 	then
-		extra_args="$extra_args -n $nstruct"
+		extra_args="$extra_args -t $nstruct"
 	fi
-
 
 	fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
 					fpd.sh -u "$clean_rec" -m "$min_rec_bb" $extra_args | awk '{print $NF}')
