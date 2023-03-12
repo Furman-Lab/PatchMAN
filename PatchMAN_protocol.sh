@@ -21,7 +21,7 @@ die() {
 
 # if count_atom_lines greather than 0, then the file is a PDB file, return true
 validate_pdb() {
-  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {9}[A-Z ]{2}[A-Z ]{0,2}" $1)
+  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5}[A-Z ]{2}.{0,6}" $1)
   if [[ $count_atom_lines -gt 0 ]]; then
     return 0
   else
@@ -64,7 +64,7 @@ work_dir=$(pwd)
 job_name="PatchMAN_JOB"
 cluster_radius="2.0"
 min_rec_bb="true"
-nstruct=1
+nstruct=''
 master_cutoff="1.5"
 step=1
 verbose=False
@@ -94,11 +94,14 @@ usage() {
 	USAGE
 }
 
-while getopts :hvw:g:c:t:f:s:n:m:p:f: opt; do
+while getopts :hvw:g:c:t:f:s:n:m:p:f:a: opt; do
 	case $opt in
 		h)
 			usage
 			exit 0
+			;;
+		a)
+			native=$OPTARG
 			;;
 		g)
 			logs_dir=$OPTARG
@@ -254,8 +257,21 @@ then
 	then
 		echo "DEBUG| EXTRACT TEMPLATES JOBID: " $extract_templates_jid
 	fi
+
+	extra_args=''
+	if [ -z "$native" ]
+	then
+		extra_args="-a $native"
+	fi
+
+	if [ -z "$nstruct" ]
+	then
+		extra_args="$extra_args -n $nstruct"
+	fi
+
+
 	fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
-						fpd.sh "$clean_rec" "$min_rec_bb" "$nstruct" | awk '{print $NF}')
+					fpd.sh -u "$clean_rec" -m "$min_rec_bb" $extra_args | awk '{print $NF}')
 fi
 
 # Step 6: Clustering & Step 6: Finalizing
