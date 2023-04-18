@@ -27,3 +27,6 @@ databases/
 *txt
 slurm*
 vm_line
+dev/
+venv*/
+benchmark/

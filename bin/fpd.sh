@@ -4,7 +4,7 @@
 #SBATCH	--kill-on-invalid-dep=yes
 #SBATCH	--mem-per-cpu=1600
 #SBATCH	--get-user-env
-#SBATCH --ntasks=150
+#SBATCH --ntasks=80
 #SBATCH --module="openmpi/2.1.6"
 
 module load singularity openmpi/2.1.6
@@ -83,7 +83,7 @@ args="-in:file:l input_list -scorefile score.sc -out:file:silent_struct_type bin
 -out:file:silent decoys.silent -lowres_preoptimize -flexPepDocking:pep_refine -flexPepDocking:flexpep_score_only \
 -ex1 -ex2aro -use_input_sc -unboundrot "$unboundrot" -min_receptor_bb "$min_rec_bb" -nstruct $nstruct"
 
-if [ -z "$native" ]
+if [ -n "$native" ]
 then
   mpirun ${ROSETTA_BIN}/FlexPepDocking.mpiserialization.linuxgccrelease $args -native "$native"
 else
