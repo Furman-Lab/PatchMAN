@@ -41,15 +41,18 @@ while getopts hu:t:a:m: opt; do
 			;;
 		u)
 			unboundrot=$OPTARG
+			fpd_args="$fpd_args -unboundrot $unboundrot"
 			;;
 		t)
 			nstruct=$OPTARG
 			;;
 		m)
 			min_rec_bb=$OPTARG
+			fpd_args="$fpd_args -min_receptor_bb $min_rec_bb"
 			;;
 		a)
 			native=$OPTARG
+			fpd_args="$fpd_args -native $native"
 			;;
 		\?)
 			echo "Invalid option: $OPTARG" >&2
@@ -78,14 +81,9 @@ then
 fi
 echo "Refinement will generate $nstruct decoys per input structure"
 
-args="-in:file:l input_list -scorefile score.sc -out:file:silent_struct_type binary \
+fpd_args="-in:file:l input_list -scorefile score.sc -out:file:silent_struct_type binary \
 -in:file:l input_list -scorefile score.sc -out:file:silent_struct_type binary -overwrite \
 -out:file:silent decoys.silent -lowres_preoptimize -flexPepDocking:pep_refine -flexPepDocking:flexpep_score_only \
--ex1 -ex2aro -use_input_sc -unboundrot "$unboundrot" -min_receptor_bb "$min_rec_bb" -nstruct $nstruct"
+-ex1 -ex2aro -use_input_sc -nstruct $nstruct $fpd_args"
 
-if [ -n "$native" ]
-then
-  mpirun ${ROSETTA_BIN}/FlexPepDocking.mpiserialization.linuxgccrelease $args -native "$native"
-else
-  mpirun ${ROSETTA_BIN}/FlexPepDocking.mpiserialization.linuxgccrelease $args
-fi
+mpirun ${ROSETTA_BIN}/FlexPepDocking.mpiserialization.linuxgccrelease $fpd_args
