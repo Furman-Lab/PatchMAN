@@ -23,16 +23,15 @@ die() {
 validate_pdb() {
 	# if it is
 	if [[ ! -r $1 ]]; then
-		echo "ERROR: $1 is not a readable file"
-		return 1
+		die "$1 is not a readable file"
 	fi
 
-  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5}[A-Z ]{2}.{0,6}" $1)
+  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{7}[0-9 .]{6}[ 0-9.]{6}" $1)
+
   if [[ $count_atom_lines -gt 0 ]]; then
     return 0
   else
-  	echo "ERROR: $1 is not a valid PDB file"
-    exit 1
+  	die "$1 is not a valid PDB file"
   fi
 }
 
@@ -47,10 +46,10 @@ zero_jobid() {
 
 # copy the file to the working directory and return the absolute path of the file
 prepare_pdb(){
-		# if validate_pdb returns 0, then the receptor is valid
-		validate_pdb $1
+		validate_pdb $1 # this dies if the file is not a valid PDB file
 		cp $1 .
 		new_file=$(readlink -f $(basename "$1"))
+
 		echo $new_file
 }
 
@@ -58,25 +57,6 @@ prepare_pdb(){
 print_jobid(){
 	[[ $verbose ]] || echo "DEBUG| $1 JOBID: " $2
 }
-
-###########################################################
-[ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: $PROTOCOL_ROOT"
-# Set protocol root based on  of this script.
-export PROTOCOL_ROOT=$(dirname $(realpath ${BASH_SOURCE}))
-source ${PROTOCOL_ROOT}/.env $PROTOCOL_ROOT
-export BIN_DIR=${PROTOCOL_ROOT}/bin
-export PATH=.:${BIN_DIR}:${PATH}
-export PYTHONPATH="" # messes up python packages inside the  otherwise
-[ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: ${PROTOCOL_ROOT}"
-###########################################################
-if [[ "$VIRTUAL_ENV" == '' ]]
-then
-        export PYTHON=$(echo $PYTHON | sed "s#PROTOCOL_ROOT#${PROTOCOL_ROOT}#g")
-else
-        . $VIRTUAL_ENV/bin/activate || die "No virtual  detected. Please install it  by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
-        export PYTHON="python3 "
-fi
-###########################################################
 
 # Defaults
 work_dir=$(pwd)
@@ -168,7 +148,28 @@ while getopts hvw:g:c:t:f:s:n:m:p:f:a:o opt; do
 done
 shift "$((OPTIND-1))"
 
+# Get absolute path of the input receptor
 receptor=$(readlink -f $1)
+
+
+###########################################################
+# Set protocol root based on  of this script.
+export PROTOCOL_ROOT=$(dirname $(realpath ${BASH_SOURCE}))
+source ${PROTOCOL_ROOT}/.env ",$work_dir"
+export BIN_DIR=${PROTOCOL_ROOT}/bin
+export PATH=.:${BIN_DIR}:${PATH}
+export PYTHONPATH="" # messes up python packages inside the  otherwise
+[ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: ${PROTOCOL_ROOT}"
+###########################################################
+if [[ "$VIRTUAL_ENV" == '' ]]
+then
+        export PYTHON=$(echo $PYTHON | sed "s#PROTOCOL_ROOT#${PROTOCOL_ROOT}#g")
+else
+        . $VIRTUAL_ENV/bin/activate || die "No virtual  detected. Please install it  by: virtualenv .venv && . .venv/bin/activate && pip install -r requirements.txt"
+        export PYTHON="python3 "
+fi
+###########################################################
+
 
 # Create output directory if does not exist, and cd into it
 mkdir -p $work_dir
@@ -204,8 +205,7 @@ fi
 
 ############### PREPARE JOB ###############
 
-
-# Rename all receptor chains to one, otherwise the protocol crashes
+# Rename all receptor chains to one, the protocol can only handle one chain
 chain_id=$(grep -m 1 '^ATOM' $receptor | cut -c 22)
 sed -Ei "s/^(ATOM.{17})[A-Z]/\1${chain_id}/" $receptor
 sed '/^TER/d' -i $receptor

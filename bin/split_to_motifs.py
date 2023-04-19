@@ -265,6 +265,7 @@ def load_and_clean_pdb(pdb_file, return_name=False):
 
 def main():
 	# cd into working directory - important for singularity
+	print(os.getcwd())
 	os.chdir(os.getenv('work_dir'))
 	
 	# set up 3 arguments with argparse: -i, -f and -m
