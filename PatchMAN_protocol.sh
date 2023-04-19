@@ -16,7 +16,7 @@
 
 die() {
 	echo >&2 -e "\nERROR: $@\n"
-	 1
+	exit 1
 }
 
 # if count_atom_lines greather than 0, then the file is a PDB file, return true
@@ -43,12 +43,14 @@ zero_jobid() {
 	fi
 }
 
+# copy the file to the working directory and return the absolute path of the file
 prepare_pdb(){
 		cp $1 .
 		new_file=$(readlink -f $(basename "$1"))
 		return $new_file
 }
 
+# print the jobid if in verbose mdoe
 print_jobid(){
 	if (( $verbose ))
 	then
@@ -74,7 +76,6 @@ else
         export PYTHON="python3 "
 fi
 ###########################################################
-#module try-load openmpi/2.1.6
 
 # Defaults
 work_dir=$(pwd)
@@ -214,7 +215,7 @@ sed '/^TER/d' -i $receptor
 rec_name=`echo ${receptor_base::-4}`
 clean_rec="$rec_name.clean.pdb"
 ppkrec=`echo ${receptor_base::-4}'.clean.ppk.pdb'`
-echo "DEBUG| " $clean_rec $rec_name $ppkrec
+(($verbose)) | echo "DEBUG: " $clean_rec $rec_name $ppkrec
 
 # Step 1: Split to motifs
 if [[ $step -le 1 ]]
