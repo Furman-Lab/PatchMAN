@@ -172,9 +172,9 @@ pushd $work_dir > /dev/null ||
 
 ############# VALIDATE INPUT #############
 
-[ -r "$1" ] || die "Receptor is not a readable file: $1"
+[ -r "$1" ] || die "Receptor is not a readable file: '$1'"
 pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # remove PTMs for validation of the rest of the peptide
-[[ "$pep_sequence_to_validate" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2" # modified for PTM
+[[ "$pep_sequence_to_validate" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: '$2'" # modified for PTM
 
 # if validate_pdb returns 0, then the receptor is valid
 validate_pdb $receptor || die "Receptor is not a valid PDB file: $receptor"
