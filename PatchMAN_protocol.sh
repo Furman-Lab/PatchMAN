@@ -27,13 +27,13 @@ validate_pdb() {
 		return 1
 	fi
 
-  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5}[A-Z ]{2}.{0,6}" $1)
-  if [[ $count_atom_lines -gt 0 ]]; then
-    return 0
-  else
-  			echo "ERROR: $1 is not a valid PDB file"
-    return 1
-  fi
+	count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5}[A-Z ]{2}.{0,6}" $1)
+	if [[ $count_atom_lines -gt 0 ]]; then
+		return 0
+	else
+  		echo "ERROR: $1 is not a valid PDB file"
+		return 1
+	fi
 }
 
 # if jobid is empty, set it to 0
@@ -47,17 +47,16 @@ zero_jobid() {
 
 # copy the file to the working directory and return the absolute path of the file
 prepare_pdb(){
-		cp $1 .
-		new_file=$(readlink -f $(basename "$1"))
-		return $new_file
+	validate_pdb $1 || die "Not a valid PDB file: $1"
+	cp $1 .
+	new_file=$(readlink -f $(basename "$1"))
+
+	echo $new_file
 }
 
 # print the jobid if in verbose mdoe
 print_jobid(){
-	if (( $verbose ))
-	then
-		echo "DEBUG| $1 JOBID: " $2
-	fi
+	[[ $verbose ]] || echo "DEBUG| $1 JOBID: " $2
 }
 
 ###########################################################
@@ -120,7 +119,7 @@ while getopts hvw:g:c:t:f:s:n:m:p:f:a:o opt; do
 			exit 0
 			;;
 		a)
-			native=$OPTARG
+			native=$(readlink -f $OPTARG)
 			;;
 		g)
 			logs_dir=$OPTARG
@@ -147,10 +146,11 @@ while getopts hvw:g:c:t:f:s:n:m:p:f:a:o opt; do
 			focus=$(readlink -f $OPTARG)
 			;;
 		o)
-			hotspot_mode=True
+			hotspot_mode=1
+			split_to_motifs_args=" --hotspot_mode "
 			;;
 		v)
-			verbose=True
+			verbose=1
 			args=" -v "
 			;;
 		n)
@@ -168,46 +168,42 @@ while getopts hvw:g:c:t:f:s:n:m:p:f:a:o opt; do
 done
 shift "$((OPTIND-1))"
 
+receptor=$(readlink -f $1)
+
 # Create output directory if does not exist, and cd into it
 mkdir -p $work_dir
-pushd $work_dir > /dev/null ||
+pushd $work_dir > /dev/null
 
 ############# VALIDATE INPUT #############
 
-receptor=$(readlink -f $1)
-# if validate_pdb returns 0, then the receptor is valid
-validate_pdb $receptor || die "Receptor is not a valid PDB file: $receptor"
+# Prepare receptor
+# If validate_pdb returns 0, then the receptor is valid
+receptor=$(prepare_pdb $receptor)
+receptor_base=$(basename "$receptor")
 
-[ -r "$1" ] || die "Receptor is not a readable file: '$1'"
+# Prepare input peptide
 pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # remove PTMs for validation of the rest of the peptide
 [[ "$pep_sequence_to_validate" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: '$2'" # modified for PTM
 pep_sequence="$2"
 
-# if both mask and focus are provided, then raise an error
+# If both mask and focus are provided, then raise an error
 # Check if files are readable ones and if not, raise an error
 # If they are okay, copy to the working directory, get their path and add to the split_to_motifs_args
 if [[ -n "$mask" && -n "$focus" ]]; then
 	die "Cannot provide both mask and focus"
 elif [[ -n $mask ]]; then
-	validate_pdb $mask || die "Mask is not a valid PDB file: $mask"
 	mask=$(prepare_pdb $mask)
 	split_to_motifs_args="-m $mask"
 elif [[ -n $focus  ]]; then
-	validate_pdb $focus || die "Mask is not a valid PDB file: $focus"
 	focus=$(prepare_pdb $focus)
 	split_to_motifs_args="-f $focus"
 elif [[ -n $native ]]; then
-	validate_pdb $native || die "Mask is not a valid PDB file: $native"
 	native=$(prepare_pdb $native)
 	fpd_args="-a $native"
 fi
 
 ############### PREPARE JOB ###############
 
-
-# Prepare receptor
-receptor=$(prepare_pdb $receptor)
-receptor_base=$(basename "$receptor")
 
 # Rename all receptor chains to one, otherwise the protocol crashes
 chain_id=$(grep -m 1 '^ATOM' $receptor | cut -c 22)
@@ -218,12 +214,12 @@ sed '/^TER/d' -i $receptor
 rec_name=`echo ${receptor_base::-4}`
 clean_rec="$rec_name.clean.pdb"
 ppkrec=`echo ${receptor_base::-4}'.clean.ppk.pdb'`
-(($verbose)) | echo "DEBUG: " $clean_rec $rec_name $ppkrec
+[[ $verbose ]] || echo "DEBUG: " $clean_rec $rec_name $ppkrec
 
 # Step 1: Split to motifs
 if [[ $step -le 1 ]]
 then
-	$PYTHON ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args $split_to_motifs_args
+	$PYTHON ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args $split_to_motifs_args || die "Splitting receptor to patches was not successful, aborting"
 
 	ls ???'_'$rec_name'.pdb' > motif_list
 	$MASTER/createPDS --type query --pdbList motif_list >& /dev/null # remove the long stdout
@@ -242,7 +238,7 @@ fi
 if [[ $step -le 3 ]]
 then
 	prepack_receptor_jid=$(zero_jobid $prepack_receptor_jid)
-  print_jobid "PREPACK" $prepack_receptor_jid
+	print_jobid "PREPACK" $prepack_receptor_jid
 	run_master_jid=$(sbatch --dependency=afterok:"${prepack_receptor_jid}" --array=0-"$n_searches"%50 ${BIN_DIR}/run_master.sh $master_cutoff | awk '{print $NF}')
 fi
 
@@ -311,7 +307,6 @@ fi
 	Cluster radius: $cluster_radius
 	Slurm job IDs: $run_master_jid $extract_templates_jid $fpd_jid $clustering_jid $finalize_jid
 	Current working directory: $(pwd)
-#	Notification script: $([ "$notify_script" ] && echo $notify_script)
 	------------------------------------------------
 	JOBINFO
 

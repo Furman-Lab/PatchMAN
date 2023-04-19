@@ -254,7 +254,7 @@ def load_and_clean_pdb(pdb_file, return_name=False):
 	"""
 	
 	toolbox.cleaning.cleanATOM(pdb_file)
-	prot_name = os..splitext(os.path.basename(pdb_file))[0]
+	prot_name = os.path.splitext(os.path.basename(pdb_file))[0]
 	pose = pose_from_pdb(prot_name + '.clean.pdb')
 	
 	if return_name:
@@ -268,7 +268,7 @@ def main():
 	os.chdir(os.getenv('work_dir'))
 	
 	# set up 3 arguments with argparse: -i, -f and -m
-	parser = argparse.ArgumentParser( = 'Create motifs from a protein structure')
+	parser = argparse.ArgumentParser(description = 'Create motifs from a protein structure')
 	parser.add_argument('-i', '--input', help='Input PDB file', required=True)
 	parser.add_argument('-f', '--focus', help='Focus mask PDB file, with the residues that should form the interface',
 	                    required=False, default=None)
