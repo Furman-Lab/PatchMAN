@@ -89,21 +89,24 @@ verbose=False
 usage() {
 	cat <<-USAGE
 	Usage: ${0##*/} [opts] RECEPTOR PEPTIDE_SEQUENCE
+
 	PatchMAN performs search on existing  monomers and complexes with structural motifs extracted from the query receptor and extract complementary fragments to be used as templates for peptide-protein interactions.
+
 		RECEPTOR: PDB file with the receptor
 		PEPTIDE_SEQUENCE can include modified residues in "GFK[SER:phosphorylated]RAD" format.
-        	-m minimize receptor backbone (default: false)
+
+					-m minimize receptor backbone (default: false)
 					-g log file (Default is stdout)
 					-e error log file (Default is stderr)
 					-n job name (Default: PatchMAN_JOB)
-	        -v print information about the job
-	        -w working directory (Default: current directory)
-	        -t number of structures to generate (Default: 1)
-	        -c master cutoff (Default: 1.5)
-	        -s mask file with resides not in the binding site (type: pdb file, Default: None)
-	        -f focus mask, with residues that are in the binding site (type: pdb file, Default: None)
-	        -p step to start from (Default: 1, 1: split to motifs, 2: prepack receptor, 3: run MASTER,
-	        												4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)
+					-v print information about the job
+					-w working directory (Default: current directory)
+					-t number of structures to generate (Default: 1)
+					-c master cutoff (Default: 1.5)
+					-s mask file with resides not in the binding site (type: pdb file, Default: None)
+					-f focus mask, with residues that are in the binding site (type: pdb file, Default: None)
+					-p step to start from (Default: 1, 1: split to motifs, 2: prepack receptor, 3: run MASTER,
+																	4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)
 	USAGE
 }
 
