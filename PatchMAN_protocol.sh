@@ -21,6 +21,10 @@ die() {
 
 # if count_atom_lines greather than 0, then the file is a PDB file, return true
 validate_pdb() {
+	# if it is
+	if [[ ! -r $1 ]]; then
+		return 1
+
   count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5}[A-Z ]{2}.{0,6}" $1)
   if [[ $count_atom_lines -gt 0 ]]; then
     return 0
@@ -38,9 +42,21 @@ zero_jobid() {
 	fi
 }
 
-[ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: $PROTOCOL_ROOT"
+prepare_pdb(){
+		cp $1 .
+		new_file=$(readlink -f $(basename "$1"))
+		return $new_file
+}
+
+print_jobid(){
+	if (( $verbose ))
+	then
+		echo "DEBUG| $1 JOBID: " $2
+	fi
+}
 
 ###########################################################
+[ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: $PROTOCOL_ROOT"
 # Set protocol root based on  of this script.
 export PROTOCOL_ROOT=$(dirname $(realpath ${BASH_SOURCE}))
 source ${PROTOCOL_ROOT}/.env $PROTOCOL_ROOT
@@ -73,7 +89,7 @@ usage() {
 	cat <<-USAGE
 	Usage: ${0##*/} [opts] RECEPTOR PEPTIDE_SEQUENCE
 	PatchMAN performs search on existing  monomers and complexes with structural motifs extracted from the query receptor and extract complementary fragments to be used as templates for peptide-protein interactions.
-		RECEPTOR: PDB file with the receptor 
+		RECEPTOR: PDB file with the receptor
 		PEPTIDE_SEQUENCE can include modified residues in "GFK[SER:phosphorylated]RAD" format.
         	-m minimize receptor backbone (default: false)
 					-g log file (Default is stdout)
@@ -90,7 +106,7 @@ usage() {
 	USAGE
 }
 
-while getopts :hvw:g:c:t:f:s:n:m:p:f:a: opt; do
+while getopts hvw:g:c:t:f:s:n:m:p:f:a:o opt; do
 	case $opt in
 		h)
 			usage
@@ -123,8 +139,12 @@ while getopts :hvw:g:c:t:f:s:n:m:p:f:a: opt; do
 		f)
 			focus=$(readlink -f $OPTARG)
 			;;
+		o)
+			hotspot_mode=True
+			;;
 		v)
 			verbose=True
+			args=" -v "
 			;;
 		n)
 			job_name=$(echo $OPTARG | sed -r 's/[\t\n ]+/_/g')
@@ -141,45 +161,50 @@ while getopts :hvw:g:c:t:f:s:n:m:p:f:a: opt; do
 done
 shift "$((OPTIND-1))"
 
+# Create output directory if does not exist, and cd into it
+mkdir -p $work_dir
+pushd $work_dir > /dev/null ||
+
+############# VALIDATE INPUT #############
+
 [ -r "$1" ] || die "Receptor is not a readable file: $1"
 pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # remove PTMs for validation of the rest of the peptide
 [[ "$pep_sequence_to_validate" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: $2" # modified for PTM
 
+# if validate_pdb returns 0, then the receptor is valid
+validate_pdb $receptor || die "Receptor is not a valid PDB file: $receptor"
+
+# if both mask and focus are provided, then raise an error
+# Check if files are readable ones and if not, raise an error
+# If they are okay, copy to the working directory, get their path and add to the split_to_motifs_args
+if [[ -n "$mask" && -n "$focus" ]]; then
+	die "Cannot provide both mask and focus"
+elif [[ -n $mask ]]; then
+	validate_pdb $mask || die "Mask is not a valid PDB file: $mask"
+	mask=$(prepare_pdb $mask)
+	split_to_motifs_args="-m $mask"
+elif [[ -n $focus and ! -r $focus ]]; then
+	validate_pdb $focus || die "Mask is not a valid PDB file: $focus"
+	focus=$(prepare_pdb $focus)
+	split_to_motifs_args="-f $focus"
+elif [[ -n $native and ! -r $native ]]; then
+	validate_pdb $native || die "Mask is not a valid PDB file: $native"
+	native=$(prepare_pdb $native)
+	fpd_args="-a $native"
+fi
+
 ############### PREPARE JOB ###############
-# Creating a directory for the job and copying inputs to it
 receptor=$(readlink -f $1)
 pep_sequence="$2"
 
-# Create output directory if does not exist, and cd into it
-mkdir -p $work_dir
-pushd $work_dir > /dev/null || 
-
 # Prepare receptor
-# if validate_pdb returns 0, then the receptor is valid
-validate_pdb $receptor || die "Receptor is not a valid PDB file: $receptor"
-cp $receptor .
-receptor=$(readlink -f $(basename "$receptor"))
+receptor=$(prepare_pdb $receptor)
 receptor_base=$(basename "$receptor")
 
 # Rename all receptor chains to one, otherwise the protocol crashes
 chain_id=$(grep -m 1 '^ATOM' $receptor | cut -c 22)
 sed -Ei "s/^(ATOM.{17})[A-Z]/\1${chain_id}/" $receptor
 sed '/^TER/d' -i $receptor
-
-# Prepare (focus) mask if provided
-if  [[ -f "$mask" ]]
-then
-  # if validate_pdb returns 0, then the mask is valid
-  validate_pdb $mask || die "Mask is not a valid PDB file: $mask"
-  cp $mask .
-  mask=$(readlink -f $(basename "$mask"))
-elif [[ -f "$focus" ]]
-then
-	# if validate_pdb returns 0, then the mask is valid
-	validate_pdb $focus || die "Mask is not a valid PDB file: $focus"
-	cp $focus .
-	focus=$(readlink -f $(basename "$focus"))
-fi
 
 # Set pdb filenames
 rec_name=`echo ${receptor_base::-4}`
@@ -190,23 +215,7 @@ echo "DEBUG| " $clean_rec $rec_name $ppkrec
 # Step 1: Split to motifs
 if [[ $step -le 1 ]]
 then
-	# if mask or focus is provided, append to args
-	if [[ -f "$mask" ]]
-	then
-		args="-m $mask"
-	elif [[ -f $focus ]]; then
-		args="-f $focus"
-	else
-		args=""
-	fi
-
-	# if verbose, append to args
-	if [[ $verbose == True ]]
-	then
-		args="$args -v"
-	fi
-
-	$PYTHON ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args
+	$PYTHON ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args $split_to_motifs_args
 
 	ls ???'_'$rec_name'.pdb' > motif_list
 	$MASTER/createPDS --type query --pdbList motif_list >& /dev/null # remove the long stdout
@@ -225,10 +234,7 @@ fi
 if [[ $step -le 3 ]]
 then
 	prepack_receptor_jid=$(zero_jobid $prepack_receptor_jid)
-	if [[ $verbose == True ]]
-	then
-		echo "DEBUG| PREPACK JOBID: " $prepack_receptor_jid
-	fi
+  print_jobid "PREPACK" $prepack_receptor_jid
 	run_master_jid=$(sbatch --dependency=afterok:"${prepack_receptor_jid}" --array=0-"$n_searches"%50 ${BIN_DIR}/run_master.sh $master_cutoff | awk '{print $NF}')
 fi
 
@@ -236,10 +242,7 @@ fi
 if [[ $step -le 4 ]]
 then
 	run_master_jid=$(zero_jobid $run_master_jid)
-	if [[ $verbose == True ]]
-	then
-		echo "DEBUG| MASTER JOBID: " $run_master_jid
-	fi
+	print_jobid "MASTER" $run_master_jid
 	extract_templates_jid=$(sbatch --array=0-"$n_searches"%50 --dependency=afterany:"${run_master_jid}" ${BIN_DIR}/run_extract_templates.sh \
 	                    "$pep_sequence" "$ppkrec" | awk '{print $NF}')
 fi
@@ -248,35 +251,23 @@ fi
 if [[ $step -le 5 ]]
 then
 	extract_templates_jid=$(zero_jobid $extract_templates_jid)
-	if [[ $verbose == True ]]
-	then
-		echo "DEBUG| EXTRACT TEMPLATES JOBID: " $extract_templates_jid
-	fi
-
-	extra_args=''
-	if [ -z "$native" ]
-	then
-		extra_args="-a $native"
-	fi
+	print_jobid "EXTRACT TEMPLATES" $extract_templates_jid
 
 	if [ -z "$nstruct" ]
 	then
-		extra_args="$extra_args -t $nstruct"
+		fpd_args="$extra_args -t $nstruct"
 	fi
 
 	fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
-					fpd.sh -u "$clean_rec" -m "$min_rec_bb" $extra_args | awk '{print $NF}')
+					fpd.sh -u "$clean_rec" -m "$min_rec_bb" $fpd_args | awk '{print $NF}')
 fi
 
 # Step 6: Clustering & Step 6: Finalizing
 if [[ $step -le 6 ]]
 then
-	if [[ $verbose == True ]]
-	then
-		echo "DEBUG| FPD JOBID: " $fpd_jid
-	fi
+	print_jobid "FPD" $fpd_jid
 
-	echo "Running final steps"
+	echo "Running steps: clustering and finalizing"
 	fpd_jid=$(zero_jobid $fpd_jid)
 	clustering_jid=$(sbatch \
 					--job-name=clustering \
@@ -298,8 +289,6 @@ then
 			--get-user-env \
 			finalize.sh | awk '{print $NF}')
 fi
-
-
 
 
 

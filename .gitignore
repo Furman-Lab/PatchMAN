@@ -9,7 +9,8 @@ db_list_30nonred
 Dockerfile
 bin/__pycache__/
 try.def
-!test/1ssh.pdb
+test*/
+!test_pdbs
 bin/*.pl
 .idea
 try.def
