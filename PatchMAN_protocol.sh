@@ -24,6 +24,7 @@ validate_pdb() {
 	# if it is
 	if [[ ! -r $1 ]]; then
 		return 1
+	fi
 
   count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5}[A-Z ]{2}.{0,6}" $1)
   if [[ $count_atom_lines -gt 0 ]]; then
