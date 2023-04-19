@@ -51,7 +51,7 @@ prepare_pdb(){
 		validate_pdb $1
 		cp $1 .
 		new_file=$(readlink -f $(basename "$1"))
-		return $new_file
+		echo $new_file
 }
 
 # print the jobid if in verbose mdoe
