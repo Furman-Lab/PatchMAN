@@ -27,13 +27,13 @@ validate_pdb() {
 		return 1
 	fi
 
-	count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5}[A-Z ]{2}.{0,6}" $1)
-	if [[ $count_atom_lines -gt 0 ]]; then
-		return 0
-	else
-  		echo "ERROR: $1 is not a valid PDB file"
-		return 1
-	fi
+  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6} {5}[A-Z ]{2}.{0,6}" $1)
+  if [[ $count_atom_lines -gt 0 ]]; then
+    return 0
+  else
+  	echo "ERROR: $1 is not a valid PDB file"
+    exit 1
+  fi
 }
 
 # if jobid is empty, set it to 0
@@ -47,11 +47,11 @@ zero_jobid() {
 
 # copy the file to the working directory and return the absolute path of the file
 prepare_pdb(){
-	validate_pdb $1 || die "Not a valid PDB file: $1"
-	cp $1 .
-	new_file=$(readlink -f $(basename "$1"))
-
-	echo $new_file
+		# if validate_pdb returns 0, then the receptor is valid
+		validate_pdb $1
+		cp $1 .
+		new_file=$(readlink -f $(basename "$1"))
+		return $new_file
 }
 
 # print the jobid if in verbose mdoe
