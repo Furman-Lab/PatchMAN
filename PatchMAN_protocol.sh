@@ -257,11 +257,11 @@ then
 	extract_templates_jid=$(zero_jobid $extract_templates_jid)
 	print_jobid "EXTRACT TEMPLATES" $extract_templates_jid
 
-	if [ -z "$nstruct" ]
+	if [ ! -z "$nstruct" ]
 	then
-		fpd_args="$extra_args -t $nstruct"
+		fpd_args="$fpd_args -t $nstruct"
 	fi
-
+	echo "Running fpd args: $fpd_args"
 	fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
 					fpd.sh -u "$clean_rec" -m "$min_rec_bb" $fpd_args | awk '{print $NF}')
 fi

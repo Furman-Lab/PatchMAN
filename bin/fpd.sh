@@ -33,7 +33,7 @@ usage() {
 	USAGE
 }
 
-while getopts :hu:t:a:m: opt; do
+while getopts hu:t:a:m: opt; do
 	case $opt in
 		h)
 			usage
