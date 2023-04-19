@@ -187,11 +187,11 @@ elif [[ -n $mask ]]; then
 	validate_pdb $mask || die "Mask is not a valid PDB file: $mask"
 	mask=$(prepare_pdb $mask)
 	split_to_motifs_args="-m $mask"
-elif [[ -n $focus and ! -r $focus ]]; then
+elif [[ -n $focus  ]]; then
 	validate_pdb $focus || die "Mask is not a valid PDB file: $focus"
 	focus=$(prepare_pdb $focus)
 	split_to_motifs_args="-f $focus"
-elif [[ -n $native and ! -r $native ]]; then
+elif [[ -n $native ]]; then
 	validate_pdb $native || die "Mask is not a valid PDB file: $native"
 	native=$(prepare_pdb $native)
 	fpd_args="-a $native"
