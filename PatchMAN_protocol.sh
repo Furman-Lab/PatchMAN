@@ -31,8 +31,8 @@ validate_pdb() {
   if [[ $count_atom_lines -gt 0 ]]; then
     return 0
   else
-  			echo "ERROR: $1 is not a valid PDB file"
-    return 1
+  	echo "ERROR: $1 is not a valid PDB file"
+    exit 1
   fi
 }
 
@@ -47,6 +47,8 @@ zero_jobid() {
 
 # copy the file to the working directory and return the absolute path of the file
 prepare_pdb(){
+		# if validate_pdb returns 0, then the receptor is valid
+		validate_pdb $1
 		cp $1 .
 		new_file=$(readlink -f $(basename "$1"))
 		return $new_file
@@ -175,8 +177,6 @@ pushd $work_dir > /dev/null ||
 ############# VALIDATE INPUT #############
 
 receptor=$(readlink -f $1)
-# if validate_pdb returns 0, then the receptor is valid
-validate_pdb $receptor || die "Receptor is not a valid PDB file: $receptor"
 
 [ -r "$1" ] || die "Receptor is not a readable file: '$1'"
 pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # remove PTMs for validation of the rest of the peptide
