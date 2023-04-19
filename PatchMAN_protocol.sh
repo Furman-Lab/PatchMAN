@@ -23,6 +23,7 @@ die() {
 validate_pdb() {
 	# if it is
 	if [[ ! -r $1 ]]; then
+		echo "ERROR: $1 is not a readable file"
 		return 1
 	fi
 
@@ -30,6 +31,7 @@ validate_pdb() {
   if [[ $count_atom_lines -gt 0 ]]; then
     return 0
   else
+  			echo "ERROR: $1 is not a valid PDB file"
     return 1
   fi
 }
