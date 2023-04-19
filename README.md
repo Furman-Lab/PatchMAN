@@ -90,7 +90,7 @@ PatchMAN can be run with:
 where RECEPTOR is a PDB file and PEPTIDE is the peptide sequence to be docked.
 The peptide can contain post-translational modifications, denoted by Rosetta standards, e.g. `[SER:phosphorylated]`. The available PTMs can be listed with
 
-```singularity run rosetta.sif ls /rosetta/main/database/chemical/residue_type_sets/fa_standard/patches```
+```singularity run containers/rosetta.sif ls /rosetta/main/database/chemical/residue_type_sets/fa_standard/patches```
 
 :exclamation: Note that the protocol script is set up to use Singularity containers. If you compiled Rosetta, PyRosetta or MASTER without containers, you will need to edit the `$ROSETTA`, `$PYTHON` and `$MASTER` environmental variables accordingly.
 
@@ -107,16 +107,20 @@ cd test/
 
 ### Running parameters
 ```
--m minimize receptor backbone (true or false; default: true)
--t number of refinement runs for FlexPepDock (default: 1)
--s masked residues as a PDB structure (default: None) # Note: this feature is experimental
+-m minimize receptor backbone (default: false)
+-s mask file with resides not in the binding site (type: pdb file, Default: None)
+-f focus mask, with residues that are in the binding site (type: pdb file, Default: None)
 
--w working directory (default: current directory)
--o output directory for the ligands (default: working directory)
+-w working directory (Default: current directory)
+-t number of structures to generate (Default: 1)
+-c master cutoff (Default: 1.5)
+
+-p step to start from (Default: 1, 1: split to motifs, 2: prepack receptor, 3: run MASTER,
+                                4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)
+-n job name (Default: PatchMAN_JOB)
 -g log file (Default is stdout)
 -e error log file (Default is stderr)
--n job name
--v verbose (default: false)
+-v verbose mode, print information about the job
 ```
 
 ---
