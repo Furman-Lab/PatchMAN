@@ -5,8 +5,6 @@
 #SBATCH --nice=8000
 #SBATCH --get-user-env
 
-#source $PROTOCOL_ROOT/.env ",$work_dir"
-
 master_list=($(ls *pds))
 echo "$SLURM_ARRAY_TASK_ID"
 master_job=${master_list["$SLURM_ARRAY_TASK_ID"]}
