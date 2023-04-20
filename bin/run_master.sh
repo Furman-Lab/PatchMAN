@@ -3,8 +3,9 @@
 #SBATCH --time=93:00:00
 #SBATCH --mem=1G
 #SBATCH --nice=8000
+#SBATCH --get-user-env
 
-source $PROTOCOL_ROOT/.env
+#source $PROTOCOL_ROOT/.env ",$work_dir"
 
 master_list=($(ls *pds))
 echo "$SLURM_ARRAY_TASK_ID"

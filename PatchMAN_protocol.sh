@@ -224,8 +224,10 @@ then
 	ls ???'_'$rec_name'.pdb' > motif_list
 	$MASTER/createPDS --type query --pdbList motif_list >& /dev/null # remove the long stdout
 	echo "MASTER pds files were created for all motifs"
-	n_searches=$(wc -l motif_list | gawk '{print $1}')
 fi
+
+# This will be used by several steps
+n_searches=$(wc -l motif_list | gawk '{print $1}')
 
 # Step 2: Prepack receptor
 if [[ $step -le 2 ]]
