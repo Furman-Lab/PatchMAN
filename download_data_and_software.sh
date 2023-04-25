@@ -40,7 +40,8 @@ curl -f -o $CONTAINER_DIR/mslib.tar.gz "https://grigoryanlab.org/msl/msl-static-
 # Download OpenMPI that matches with host distribution. If you need an other one, change OMPI_VERSION.
 echo " Downloading OpenMPI..."
 OMPI_VERSION=$(mpirun --version | head -1 | cut -d ' ' -f4) # change this to match your mpi version!
-OMPI_URL="https://download.open-mpi.org/release/open-mpi/v2.1/openmpi-$OMPI_VERSION.tar.bz2"
+OMPI_SHORT_VERSION=$(echo $OMPI_VERSION | cut -d '.' -f1-2)
+OMPI_URL="https://download.open-mpi.org/release/open-mpi/v$OMPI_SHORT_VERSION/openmpi-$OMPI_VERSION.tar.bz2"
 curl -Lo $CONTAINER_DIR/openmpi.tar.bz2 $OMPI_URL --keepalive-time 2 -H 'Expect:'
 
 

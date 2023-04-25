@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: ubuntu:20.04
+From: ubuntu:22.04
 
 ###########################################################
 #            Container for Rosetta with MPI               #
@@ -63,7 +63,7 @@ From: ubuntu:20.04
 	cd rosetta/main/source
 	
 	# Change extras and number of cores used for compilation as needed
-	python scons.py -j 4 extras=mpi,serialization mode=release bin/FlexPepDocking.mpiserialization.linuxgccrelease bin/cluster.mpiserialization.linuxgccrelease
+	python scons.py -j 37 extras=mpi,serialization mode=release bin/FlexPepDocking.mpiserialization.linuxgccrelease bin/cluster.mpiserialization.linuxgccrelease
 	cp /rosetta/main/source/build/external/release/linux/4.19/64/x86/gcc/9/mpi-serialization/* /.singularity.d/libs/ -r
 
 	# Compile mpitest
