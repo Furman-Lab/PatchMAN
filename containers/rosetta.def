@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: ubuntu:22.04
+From: ubuntu:20.04
 
 ###########################################################
 #            Container for Rosetta with MPI               #
@@ -35,6 +35,7 @@ From: ubuntu:22.04
 	echo "Installing required packages..."
 	yes | apt-get update && apt-get install -y wget git bash gcc gfortran g++ make file 
 	yes | apt-get install python python-dev zlib1g-dev  libz-dev lib32z1-dev sqlite3 sqlite3-doc
+	nproc=$(nproc)
 
 	##### OpenMPI #####
 	# Create directories for OpenMPI
@@ -63,8 +64,8 @@ From: ubuntu:22.04
 	cd rosetta/main/source
 	
 	# Change extras and number of cores used for compilation as needed
-	python scons.py -j 37 extras=mpi,serialization mode=release bin/FlexPepDocking.mpiserialization.linuxgccrelease bin/cluster.mpiserialization.linuxgccrelease
-	cp /rosetta/main/source/build/external/release/linux/4.19/64/x86/gcc/9/mpi-serialization/* /.singularity.d/libs/ -r
+	python scons.py -j $nproc extras=mpi,serialization mode=release bin/FlexPepDocking.mpiserialization.linuxgccrelease bin/cluster.mpiserialization.linuxgccrelease
+	cp /rosetta/main/source/build/external/release/linux/*/64/x86/gcc/9/mpi-serialization/* /.singularity.d/libs/ -r
 
 	# Compile mpitest
 	cd /opt && /opt/ompi/bin/mpicc -o mpitest mpitest.c
