@@ -9,7 +9,7 @@ def main():
     score_file = sys.argv[1]
     scores = sys.argv[2:]
     src_file = os.path.split(score_file)[1]
-    
+
     # process line-by line, skip lines with SEQUENCE
     print('src_file' + ' ' + " ".join(scores))
     with open(score_file, 'r') as f:
