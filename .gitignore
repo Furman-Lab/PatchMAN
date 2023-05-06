@@ -30,3 +30,4 @@ vm_line
 dev/
 venv*/
 benchmark/
+.Rproj.user

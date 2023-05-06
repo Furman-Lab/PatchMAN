@@ -264,7 +264,7 @@ then
 		fpd_args="$fpd_args -t $nstruct"
 	fi
 
-	fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd \
+	fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd $ADD_SBATCH \
 					fpd.sh -u "$clean_rec" -m "$min_rec_bb" $fpd_args | awk '{print $NF}')
 fi
 
