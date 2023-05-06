@@ -92,7 +92,7 @@ usage() {
 	USAGE
 }
 
-while getopts hvw:g:c:t:f:s:n:m:p:f:a:o opt; do
+while getopts hvw:g:c:t:f:s:n:m:p:f:a:or opt; do
 	case $opt in
 		h)
 			usage
@@ -118,6 +118,9 @@ while getopts hvw:g:c:t:f:s:n:m:p:f:a:o opt; do
 			;;
 		p)
 			step=$OPTARG
+			;;
+		r)
+			fpd_args="$fpd_args -r "
 			;;
 		s)
 			mask=$(readlink -f $OPTARG)

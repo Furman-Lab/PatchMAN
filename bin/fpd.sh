@@ -6,8 +6,6 @@
 #SBATCH	--get-user-env
 #SBATCH --ntasks=130
 
-#module load singularity openmpi/2.1.6
-ls *0001.pdb > input_list
 export HWLOC_HIDE_ERRORS=1 # otherwise MPI crashes on multiple nodes
 
 n_templates=`wc -l input_list | gawk '{print $1}'`
@@ -32,7 +30,7 @@ usage() {
 	USAGE
 }
 
-while getopts hu:t:a:m: opt; do
+while getopts hu:t:a:m:r opt; do
 	case $opt in
 		h)
 			usage
@@ -52,6 +50,9 @@ while getopts hu:t:a:m: opt; do
 		a)
 			native=$OPTARG
 			fpd_args="$fpd_args -native $native"
+			;;
+		r)
+			redundancy=1
 			;;
 		\?)
 			echo "Invalid option: $OPTARG" >&2
@@ -80,9 +81,20 @@ then
 fi
 echo "Refinement will generate $nstruct decoys per input structure"
 
+
+if [[ $redundancy ]]
+then
+	ls *0001.pdb | cut -d 2-4 | sort | uniq -c | grep -v '1 ' > tmp_input_list
+	ls *0001.pdb | grep -f tmp_input_list > input_list
+elif
+	ls *0001.pdb > input_list
+fi
+
+
 fpd_args="-in:file:l input_list -scorefile score.sc -out:file:silent_struct_type binary \
 -scorefile score.sc -out:file:silent_struct_type binary -overwrite \
 -out:file:silent decoys.silent -lowres_preoptimize -flexPepDocking:pep_refine -flexPepDocking:flexpep_score_only \
 -ex1 -ex2aro -use_input_sc -nstruct $nstruct $fpd_args"
 
 mpirun ${ROSETTA_BIN}/FlexPepDocking.mpiserialization.linuxgccrelease $fpd_args
+
