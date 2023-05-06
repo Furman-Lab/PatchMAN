@@ -88,7 +88,7 @@ usage() {
 					-s mask file with resides not in the binding site (type: pdb file, Default: None)
 					-f focus mask, with residues that are in the binding site (type: pdb file, Default: None)
 					-p step to start from (Default: 1, 1: split to motifs, 2: prepack receptor, 3: run MASTER,
-																	4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)
+									4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)
 	USAGE
 }
 
@@ -105,8 +105,8 @@ while getopts hvw:g:c:t:f:s:n:m:p:f:a:o opt; do
 			logs_dir=$OPTARG
 			;;
 		c)
-		  master_cutoff=$OPTARG
-		  ;;
+			master_cutoff=$OPTARG
+			;;
 		w)
 			export work_dir=$(realpath $OPTARG)
 			;;
@@ -198,11 +198,12 @@ elif [[ -n $mask ]]; then
 elif [[ -n $focus  ]]; then
 	focus=$(prepare_pdb $focus)
 	split_to_motifs_args="-f $focus"
-elif [[ -n $native ]]; then
-	native=$(prepare_pdb $native)
-	fpd_args="-a $native"
 fi
 
+if [[ -n $native ]]; then
+	native=$(prepare_pdb $native)
+	fpd_args="$fpd_args -a $native"
+fi
 ############### PREPARE JOB ###############
 
 # Rename all receptor chains to one, the protocol can only handle one chain
@@ -268,6 +269,7 @@ then
 					fpd.sh -u "$clean_rec" -m "$min_rec_bb" $fpd_args | awk '{print $NF}')
 fi
 
+
 # Step 6: Clustering & Step 6: Finalizing
 if [[ $step -le 6 ]]
 then
@@ -304,6 +306,7 @@ fi
 	cat <<-JOBINFO
 	------------------------------------------------
 	$(date)
+	Verbosity: $verbose
 	Receptor is: $receptor
 	Peptide sequence is: $pep_sequence
 	Cluster radius: $cluster_radius
