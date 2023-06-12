@@ -59,7 +59,7 @@ print_jobid(){
 }
 
 # Defaults
-work_dir=$(pwd)
+export work_dir=$(pwd)
 job_name="PatchMAN_JOB"
 cluster_radius="2.0"
 min_rec_bb="true"
@@ -92,7 +92,7 @@ usage() {
 	USAGE
 }
 
-while getopts hvw:g:c:t:f:s:n:m:p:f:a:or opt; do
+while getopts hvw:g:c:t:f:s:n:m:p:f:a:orb: opt; do
 	case $opt in
 		h)
 			usage
@@ -131,6 +131,10 @@ while getopts hvw:g:c:t:f:s:n:m:p:f:a:or opt; do
 		o)
 			hotspot_mode=1
 			split_to_motifs_args=" --hotspot_mode "
+			;;
+		b)
+			benchmark=$OPTARG
+			fpd_args="$fpd_args -b $benchmark "
 			;;
 		v)
 			verbose=1
@@ -267,7 +271,7 @@ then
 	then
 		fpd_args="$fpd_args -t $nstruct"
 	fi
-
+	echo running FPD
 	fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd $ADD_SBATCH \
 					fpd.sh -u "$clean_rec" -m "$min_rec_bb" $fpd_args | awk '{print $NF}')
 fi
