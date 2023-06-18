@@ -8,10 +8,6 @@
 
 export HWLOC_HIDE_ERRORS=1 # otherwise MPI crashes on multiple nodes
 
-n_templates=`wc -l input_list | gawk '{print $1}'`
-min_nstruct=`gawk "BEGIN {print $n_templates * 10}"`
-max_nstruct=20000
-
 # Set default parameters
 nstruct=''
 native=''
@@ -66,6 +62,21 @@ while getopts hu:t:a:m:r opt; do
 done
 shift "$((OPTIND-1))"
 
+
+# Filter for peptide backbone templates that have been extracted more than once
+if [[ $redundancy ]]
+then
+	ls *0001.pdb | cut -d 2-4 | sort | uniq -c | grep -v '1 ' > tmp_input_list
+	ls *0001.pdb | grep -f tmp_input_list > input_list
+elif
+	ls *0001.pdb > input_list
+fi
+
+# Set default parameters AFTER optional filtering
+n_templates=`wc -l input_list | gawk '{print $1}'`
+min_nstruct=`gawk "BEGIN {print $n_templates * 10}"`
+max_nstruct=20000
+
 if [ -z $nstruct ]; # if it not has been set manually
 then
 	echo "Nstruct needs to be set automatically"
@@ -81,14 +92,6 @@ then
 fi
 echo "Refinement will generate $nstruct decoys per input structure"
 
-
-if [[ $redundancy ]]
-then
-	ls *0001.pdb | cut -d 2-4 | sort | uniq -c | grep -v '1 ' > tmp_input_list
-	ls *0001.pdb | grep -f tmp_input_list > input_list
-elif
-	ls *0001.pdb > input_list
-fi
 
 
 fpd_args="-in:file:l input_list -scorefile score.sc -out:file:silent_struct_type binary \
