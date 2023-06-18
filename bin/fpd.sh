@@ -68,7 +68,7 @@ if [[ $redundancy ]]
 then
 	ls *0001.pdb | cut -d 2-4 | sort | uniq -c | grep -v '1 ' > tmp_input_list
 	ls *0001.pdb | grep -f tmp_input_list > input_list
-elif
+else
 	ls *0001.pdb > input_list
 fi
 
