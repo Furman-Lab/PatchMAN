@@ -213,9 +213,13 @@ if [[ -n $native ]]; then
 fi
 ############### PREPARE JOB ###############
 
-# Rename all receptor chains to one, the protocol can only handle one chain
-chain_id=$(grep -m 1 '^ATOM' $receptor | cut -c 22)
-sed -Ei "s/^(ATOM.{17})[A-Z]/\1${chain_id}/" $receptor
+# The protocol can only handle one chain. If more than one chains are in the receptor, throw an error.
+chain_ids=$(grep '^ATOM' $receptor | cut -c 22 | sort | uniq | wc -l | cut )
+
+if [[ $chain_ids -lt 1 ]]; then 
+	die "More than one chain is provided for the receptor. The protocol can only handle one chain. Rename your chains to run PatchMAN"
+fi
+
 sed '/^TER/d' -i $receptor
 
 # Set pdb filenames
@@ -227,7 +231,8 @@ ppkrec=`echo ${receptor_base::-4}'.clean.ppk.pdb'`
 # Step 1: Split to motifs
 if [[ $step -le 1 ]]
 then
-	$PYTHON ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args $split_to_motifs_args || die "Splitting receptor to patches was not successful, aborting"
+	$PYTHON ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args $split_to_motifs_args || 
+	"Splitting receptor to patches was not successful, aborting"
 
 	ls ???'_'$rec_name'.pdb' > motif_list
 	$MASTER/createPDS --type query --pdbList motif_list >& /dev/null # remove the long stdout
