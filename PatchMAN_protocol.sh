@@ -214,7 +214,7 @@ fi
 ############### PREPARE JOB ###############
 
 # The protocol can only handle one chain. If more than one chains are in the receptor, throw an error.
-chain_ids=$(grep '^ATOM' $receptor | cut -c 22 | sort | uniq | wc -l | cut )
+chain_ids=$(grep '^ATOM' $receptor | cut -c 22 | sort | uniq | wc -l)
 
 if [[ $chain_ids -lt 1 ]]; then 
 	die "More than one chain is provided for the receptor. The protocol can only handle one chain. Rename your chains to run PatchMAN"
