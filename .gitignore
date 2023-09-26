@@ -31,3 +31,5 @@ dev/
 venv*/
 benchmark/
 .Rproj.user
+PatchMAN_protocol.py
+bin/cluster.py

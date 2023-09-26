@@ -10,7 +10,7 @@
 # This script sends jobs asynchronously via Slurm, using  #
 # Singularity containers.                                 #
 #                                                         #
-#           Created by Furman Lab at HUJI, 2022.          #
+#           Created by Furman Lab at HUJI, 2023.          #
 ###########################################################
 
 
@@ -85,14 +85,16 @@ usage() {
 					-w working directory (Default: current directory)
 					-t number of structures to generate (Default: 1)
 					-c master cutoff (Default: 1.5)
-					-s mask file with resides not in the binding site (type: pdb file, Default: None)
-					-f focus mask, with residues that are in the binding site (type: pdb file, Default: None)
+					-o hotspot mode, only the residues in focus will be used as patch centers (Default: false)
+					-s PDB file with residues that should or should not be in the binding site (type: pdb file, Default: None)
+					-l list of residues that should or should not be in the binding site (type: string, Default: None, format: 'A23,A12')
+					-f focus mode - the residues should from -l or -s should form the binding site (type: boolean, Default: False, masking mode)
 					-p step to start from (Default: 1, 1: split to motifs, 2: prepack receptor, 3: run MASTER,
 									4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)
 	USAGE
 }
 
-while getopts hvw:g:c:t:f:s:n:m:p:f:a:orb: opt; do
+while getopts hvw:g:c:t:fs:n:m:p:f:a:orb:l: opt; do
 	case $opt in
 		h)
 			usage
@@ -123,14 +125,19 @@ while getopts hvw:g:c:t:f:s:n:m:p:f:a:orb: opt; do
 			fpd_args="$fpd_args -r "
 			;;
 		s)
-			mask=$(readlink -f $OPTARG)
+			mask_focus=$(readlink -f $OPTARG)
+			echo $mask_focus
 			;;
 		f)
-			focus=$(readlink -f $OPTARG)
+			split_to_motifs_args="$split_to_motifs_args -f"
+			;;
+		l)
+			resi_list=$OPTARG
+			split_to_motifs_args="$split_to_motifs_args -l $resi_list"
 			;;
 		o)
 			hotspot_mode=1
-			split_to_motifs_args=" --hotspot_mode "
+			split_to_motifs_args="$split_to_motifs_args -o "
 			;;
 		b)
 			benchmark=$OPTARG
@@ -148,7 +155,7 @@ while getopts hvw:g:c:t:f:s:n:m:p:f:a:orb: opt; do
 			 1
 			;;
 		:)
-			echo "Requires  $OPTARG" >&2
+			echo "Requires $OPTARG" >&2
 			exit 1
 			;;
 	esac
@@ -177,7 +184,6 @@ else
 fi
 ###########################################################
 
-
 # Create output directory if does not exist, and cd into it
 mkdir -p $work_dir
 pushd $work_dir > /dev/null
@@ -194,17 +200,14 @@ pep_sequence_to_validate=$(echo "$2" |  sed 's/\[[A-Z]{3,4}\:[a-z]+\]//g' -E) # 
 [[ "$pep_sequence_to_validate" =~ ^[ARNDCEQGHILKMFPSTWYV]+$ ]] || die "Not a peptide sequence: '$2'" # modified for PTM
 pep_sequence="$2"
 
-# If both mask and focus are provided, then raise an error
+# If both a pdb file or a list of residues are provided, then raise an error
 # Check if files are readable ones and if not, raise an error
 # If they are okay, copy to the working directory, get their path and add to the split_to_motifs_args
-if [[ -n "$mask" && -n "$focus" ]]; then
-	die "Cannot provide both mask and focus"
-elif [[ -n $mask ]]; then
-	mask=$(prepare_pdb $mask)
-	split_to_motifs_args="-m $mask"
-elif [[ -n $focus  ]]; then
-	focus=$(prepare_pdb $focus)
-	split_to_motifs_args="-f $focus"
+if [[ (-n "$focus_list" && -n "$mask_focus") ]]; then
+	die "Provide either PDB file or list for mask/focus residues!"
+elif [[ -n $mask_focus ]]; then
+	mask_focus=$(prepare_pdb $mask_focus)
+	split_to_motifs_args="$split_to_motifs_args -s $mask_focus"
 fi
 
 if [[ -n $native ]]; then
@@ -219,8 +222,6 @@ chain_ids=$(grep '^ATOM' $receptor | cut -c 22 | sort | uniq | wc -l)
 if [[ $chain_ids -lt 1 ]]; then 
 	die "More than one chain is provided for the receptor. The protocol can only handle one chain. Rename your chains to run PatchMAN"
 fi
-
-sed '/^TER/d' -i $receptor
 
 # Set pdb filenames
 rec_name=`echo ${receptor_base::-4}`
@@ -238,7 +239,7 @@ then
 	$MASTER/createPDS --type query --pdbList motif_list >& /dev/null # remove the long stdout
 	echo "MASTER pds files were created for all motifs"
 fi
-
+exit
 # This will be used by several steps
 n_searches=$(wc -l motif_list | gawk '{print $1}')
 
