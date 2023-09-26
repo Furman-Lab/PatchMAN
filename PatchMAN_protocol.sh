@@ -239,7 +239,7 @@ then
 	$MASTER/createPDS --type query --pdbList motif_list >& /dev/null # remove the long stdout
 	echo "MASTER pds files were created for all motifs"
 fi
-exit
+
 # This will be used by several steps
 n_searches=$(wc -l motif_list | gawk '{print $1}')
 
