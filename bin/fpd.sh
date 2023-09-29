@@ -81,7 +81,7 @@ fi
 # Fpr benchmarking, filter out those pdbs that are in the list of similar PDBs
 if [[ $benchmark_file ]]
 then
-	grep -v -f -i $benchmark_file input_list > tmp_input_list
+	grep -v -i -f $benchmark_file input_list > tmp_input_list
 	mv tmp_input_list input_list
 fi
 
