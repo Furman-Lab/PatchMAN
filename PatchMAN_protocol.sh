@@ -91,6 +91,7 @@ usage() {
 					-f focus mode - the residues should from -l or -s should form the binding site (type: boolean, Default: False, masking mode)
 					-p step to start from (Default: 1, 1: split to motifs, 2: prepack receptor, 3: run MASTER,
 									4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)
+					-b benchmark mode, use the benchmark mode of FlexPepDock with the file provided (Default: None)
 	USAGE
 }
 
@@ -141,7 +142,6 @@ while getopts hvw:g:c:t:fs:n:m:p:f:a:orb:l: opt; do
 			;;
 		b)
 			benchmark=$OPTARG
-			fpd_args="$fpd_args -b $benchmark "
 			;;
 		v)
 			verbose=1
@@ -213,6 +213,12 @@ fi
 if [[ -n $native ]]; then
 	native=$(prepare_pdb $native)
 	fpd_args="$fpd_args -a $native"
+fi
+
+if [[ -n $benchmark ]]; then
+	# grep the first 4 letters of the input pdb from the benchmark file and write a new one, splitting the line by '|'
+	grep -m 1 -Ei "${receptor_base:0:4}" $benchmark | sed 's/|/\n/g' > benchmark_file
+	fpd_args="$fpd_args -b benchmark_file"
 fi
 ############### PREPARE JOB ###############
 
