@@ -7,6 +7,7 @@
 #SBATCH --ntasks=130
 
 export HWLOC_HIDE_ERRORS=1 # otherwise MPI crashes on multiple nodes
+echo "node: ${SLURMD_NODENAME}"
 
 # Set default parameters
 nstruct=''
@@ -71,19 +72,19 @@ shift "$((OPTIND-1))"
 # Filter for peptide backbone templates that have been extracted more than once
 if [[ $redundancy ]]
 then
-	ls *0001.pdb | cut -d _ -f 2-4 | sort | uniq -c | grep -v ' 1 ' > tmp_input_list
+	ls *0001.pdb | cut -d _ -f 2-4 | sort | uniq -c | grep -v ' 1 ' | awk '{print $2}' > tmp_input_list
 	ls *0001.pdb | grep -f tmp_input_list > input_list
 else
 	ls *0001.pdb > input_list
 fi
 
-
 # Fpr benchmarking, filter out those pdbs that are in the list of similar PDBs
 if [[ $benchmark_file ]]
 then
-	grep -v -i -f $benchmark_file input_list > tmp_input_list
-	mv tmp_input_list input_list
+	mv input_list list_before_benchmark_filtering
+	grep -v -i -f $benchmark_file list_before_benchmark_filtering > input_list
 fi
+
 
 # Set default parameters AFTER optional filtering
 n_templates=`wc -l input_list | gawk '{print $1}'`
@@ -112,5 +113,5 @@ fpd_args="-in:file:l input_list -scorefile score.sc -out:file:silent_struct_type
 -out:file:silent decoys.silent -lowres_preoptimize -flexPepDocking:pep_refine -flexPepDocking:flexpep_score_only \
 -ex1 -ex2aro -use_input_sc -nstruct $nstruct $fpd_args"
 
-mpirun ${ROSETTA_BIN}/FlexPepDocking.mpiserialization.linuxgccrelease $fpd_args
+time mpirun ${ROSETTA_BIN}/FlexPepDocking.mpiserialization.linuxgccrelease $fpd_args
 
