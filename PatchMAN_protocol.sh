@@ -65,7 +65,8 @@ cluster_radius="2.0"
 min_rec_bb="true"
 nstruct=''
 master_cutoff="1.5"
-step=1
+step_from=1
+step_to=6
 verbose=False
 
 usage() {
@@ -120,7 +121,9 @@ while getopts hvw:g:c:t:fs:n:m:p:f:a:orb:l: opt; do
 			min_rec_bb=$OPTARG
 			;;
 		p)
-			step=$OPTARG
+			IFS="-" read step_from step_to <<< "$OPTARG"
+			[ -z "$step_from" ] && step_from=1
+			[ -z "$step_to" ] && step_to=6
 			;;
 		r)
 			fpd_args="$fpd_args -r "
@@ -237,7 +240,7 @@ ppkrec=`echo ${receptor_base::-4}'.clean.ppk.pdb'`
 [[ $verbose ]] || echo "DEBUG: " $clean_rec $rec_name $ppkrec
 
 # Step 1: Split to motifs
-if [[ $step -le 1 ]]
+if [[ 1 -ge $step_from && 1 -le $step_to ]]
 then
 	$PYTHON ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args $split_to_motifs_args || 
 	"Splitting receptor to patches was not successful, aborting"
@@ -245,37 +248,45 @@ then
 	ls ???'_'$rec_name'.pdb' > motif_list
 	$MASTER/createPDS --type query --pdbList motif_list >& /dev/null # remove the long stdout
 	echo "MASTER pds files were created for all motifs"
+else
+	echo "Skipping step 1: Splitting receptor to motifs"
 fi
 
 # This will be used by several steps
 n_searches=$(wc -l motif_list | gawk '{print $1}')
 
 # Step 2: Prepack receptor
-if [[ $step -le 2 ]]
+if [[ 2 -ge $step_from && 2 -le $step_to ]]
 then
 	prepack_receptor_jid=$(sbatch --job-name=prepack_receptor --get-user-env --time=90:00:00\
 	                --mem=1600m ${BIN_DIR}/prepare_input.sh $clean_rec | awk '{print $NF}')
+else
+	echo "Skipping step 2: Prepacking receptor"
 fi
 
 # Step 3: Run MASTER
-if [[ $step -le 3 ]]
+if [[ 3 -ge $step_from && 3 -le $step_to ]]
 then
 	prepack_receptor_jid=$(zero_jobid $prepack_receptor_jid)
 	print_jobid "PREPACK" $prepack_receptor_jid
 	run_master_jid=$(sbatch --dependency=afterok:"${prepack_receptor_jid}" --array=0-"$n_searches"%50 ${BIN_DIR}/run_master.sh $master_cutoff | awk '{print $NF}')
+else
+	echo "Skipping step 3: Running MASTER"
 fi
 
 # Step 4: Extract templates
-if [[ $step -le 4 ]]
+if [[ 4 -ge $step_from && 4 -le $step_to ]]
 then
 	run_master_jid=$(zero_jobid $run_master_jid)
 	print_jobid "MASTER" $run_master_jid
 	extract_templates_jid=$(sbatch --array=0-"$n_searches"%50 --dependency=afterany:"${run_master_jid}" ${BIN_DIR}/run_extract_templates.sh \
 	                    "$pep_sequence" "$ppkrec" | awk '{print $NF}')
+else
+	echo "Skipping step 4: Extracting templates"
 fi
 
 # Step 5: FPD
-if [[ $step -le 5 ]]
+if [[ 5 -ge $step_from && 5 -le $step_to ]]
 then
 	extract_templates_jid=$(zero_jobid $extract_templates_jid)
 	print_jobid "EXTRACT TEMPLATES" $extract_templates_jid
@@ -287,11 +298,13 @@ then
 	echo Running FPD
 	fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd $ADD_SBATCH \
 					fpd.sh -u "$clean_rec" -m "$min_rec_bb" $fpd_args | awk '{print $NF}')
+else
+	echo "Skipping step 5: FlexPepDock"
 fi
 
 
 # Step 6: Clustering & Step 6: Finalizing
-if [[ $step -le 6 ]]
+if [[ 6 -ge $step_from && 6 -le $step_to ]]
 then
 	print_jobid "FPD" $fpd_jid
 
@@ -316,6 +329,8 @@ then
 			--mem-per-cpu=2000 \
 			--get-user-env \
 			finalize.sh | awk '{print $NF}')
+else
+	echo "Skipping step 6: Clustering and finalizing"
 fi
 
 
