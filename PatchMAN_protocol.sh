@@ -90,7 +90,8 @@ usage() {
 					-s PDB file with residues that should or should not be in the binding site (type: pdb file, Default: None)
 					-l list of residues that should or should not be in the binding site (type: string, Default: None, format: 'A23,A12')
 					-f focus mode - the residues should from -l or -s should form the binding site (type: boolean, Default: False, masking mode)
-					-p step to start from (Default: 1, 1: split to motifs, 2: prepack receptor, 3: run MASTER,
+					-p steps to run between (Default: 1-6,
+									1: split to motifs, 2: prepack receptor, 3: run MASTER,
 									4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)
 					-b benchmark mode, use the benchmark mode of FlexPepDock with the file provided (Default: None)
 	USAGE
