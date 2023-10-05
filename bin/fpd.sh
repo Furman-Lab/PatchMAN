@@ -13,6 +13,7 @@ echo "node: ${SLURMD_NODENAME}"
 nstruct=''
 native=''
 min_rec_bb=false
+benchmark=false
 
 usage() {
 	cat <<-USAGE
@@ -29,7 +30,7 @@ usage() {
 	USAGE
 }
 
-while getopts hu:t:a:m:rb: opt; do
+while getopts hu:t:a:m:rb opt; do
 	case $opt in
 		h)
 			usage
@@ -51,7 +52,7 @@ while getopts hu:t:a:m:rb: opt; do
 			fpd_args="$fpd_args -native $native"
 			;;
 		b)
-			benchmark_file=$OPTARG
+			benchmark=true
 			;;
 		r)
 			redundancy=1
@@ -79,10 +80,10 @@ else
 fi
 
 # Fpr benchmarking, filter out those pdbs that are in the list of similar PDBs
-if [[ $benchmark_file ]]
+if [[ $benchmark ]]
 then
 	mv input_list list_before_benchmark_filtering
-	grep -v -i -f $benchmark_file list_before_benchmark_filtering > input_list
+	grep -v -i -f benchmark_file list_before_benchmark_filtering > input_list
 fi
 
 

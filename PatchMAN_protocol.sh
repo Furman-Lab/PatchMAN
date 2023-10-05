@@ -218,8 +218,9 @@ fi
 if [[ -n $benchmark ]]; then
 	# grep the first 4 letters of the input pdb from the benchmark file and write a new one, splitting the line by '|'
 	grep -m 1 -Ei "${receptor_base:0:4}" $benchmark | sed 's/|/\n/g' > benchmark_file
-	fpd_args="$fpd_args -b benchmark_file"
+	fpd_args="$fpd_args -b"
 fi
+
 ############### PREPARE JOB ###############
 
 # The protocol can only handle one chain. If more than one chains are in the receptor, throw an error.
@@ -283,7 +284,7 @@ then
 	then
 		fpd_args="$fpd_args -t $nstruct"
 	fi
-	echo running FPD
+	echo Running FPD
 	fpd_jid=$(sbatch --dependency=afterany:"${extract_templates_jid}" --chdir=$(pwd) --job-name=fpd $ADD_SBATCH \
 					fpd.sh -u "$clean_rec" -m "$min_rec_bb" $fpd_args | awk '{print $NF}')
 fi
