@@ -13,7 +13,7 @@ echo "node: ${SLURMD_NODENAME}"
 nstruct=''
 native=''
 min_rec_bb=false
-benchmark=false
+benchmark=''
 
 usage() {
 	cat <<-USAGE
