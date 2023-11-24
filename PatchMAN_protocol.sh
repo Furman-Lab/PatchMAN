@@ -173,7 +173,8 @@ receptor=$(readlink -f $1)
 ###########################################################
 # Set protocol root based on  of this script.
 export PROTOCOL_ROOT=$(dirname $(realpath ${BASH_SOURCE}))
-source ${PROTOCOL_ROOT}/.env ",$work_dir"
+root_dir=$(echo "${work_dir}" | grep -oE '^/[^/]+')
+source "${PROTOCOL_ROOT}/.env" ",${root_dir}"
 export BIN_DIR=${PROTOCOL_ROOT}/bin
 export PATH=.:${BIN_DIR}:${PATH}
 export PYTHONPATH="" # messes up python packages inside the  otherwise
