@@ -5,6 +5,12 @@
 #SBATCH --nice=8000
 #SBATCH --module="singularity"
 
+#$1: peptide sequence
+#$2: receptor pdb
+#$3: other arguments passed by main script
+
+source $PROTOCOL_ROOT/.env ",$(echo "$(realpath "$work_dir")" | cut -d'/' -f2)"
+
 matches=($(ls *matches))
 
 match_list=${matches["$SLURM_ARRAY_TASK_ID"]}
@@ -13,5 +19,5 @@ motif=${motifs["$SLURM_ARRAY_TASK_ID"]}
 
 echo $1 > pepfile
 
-# For old DB uncomment:
-${PYTHON} ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
+echo ${PYTHON} ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
+${PYTHON} ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif" $3
