@@ -134,15 +134,15 @@ while getopts hvw:g:c:t:fs:n:m:p:f:a:orb:l: opt; do
 			echo $mask_focus
 			;;
 		f)
-			split_to_motifs_args="$split_to_motifs_args -f"
+			focus_mask_args="$focus_mask_args -f"
 			;;
 		l)
 			resi_list=$OPTARG
-			split_to_motifs_args="$split_to_motifs_args -l $resi_list"
+			focus_mask_args="$focus_mask_args --resi_list $resi_list"
 			;;
 		o)
 			hotspot_mode=1
-			split_to_motifs_args="$split_to_motifs_args -o "
+			focus_mask_args="$focus_mask_args -o "
 			;;
 		b)
 			benchmark=$OPTARG
@@ -244,7 +244,7 @@ ppkrec=`echo ${receptor_base::-4}'.clean.ppk.pdb'`
 # Step 1: Split to motifs
 if [[ 1 -ge $step_from && 1 -le $step_to ]]
 then
-	$PYTHON ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args $split_to_motifs_args || 
+	$PYTHON ${BIN_DIR}/split_to_motifs.py -i "$receptor" $args $focus_mask_args ||
 	"Splitting receptor to patches was not successful, aborting"
 
 	ls ???'_'$rec_name'.pdb' > motif_list
@@ -282,7 +282,7 @@ then
 	run_master_jid=$(zero_jobid $run_master_jid)
 	print_jobid "MASTER" $run_master_jid
 	extract_templates_jid=$(sbatch --array=0-"$n_searches"%50 --dependency=afterany:"${run_master_jid}" ${BIN_DIR}/run_extract_templates.sh \
-	                    "$pep_sequence" "$ppkrec" | awk '{print $NF}')
+	                    "$pep_sequence" "$ppkrec" $focus_mask_args | awk '{print $NF}')
 else
 	echo "Skipping step 4: Extracting templates"
 fi

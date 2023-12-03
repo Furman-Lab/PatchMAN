@@ -3,16 +3,16 @@ from pyrosetta.rosetta import *
 
 import os
 import sys
-
 import pyrosetta_utils as utils
 import argparse
 
-MIN_RES_PATCH = 5
+MIN_RES_PATCH = 5 # TODO: delete, seems not to be used
 NEIGHBORS_DIST = 10
-BACKBONE_ATOMS = ['C', 'CA', 'O', 'N']
+BACKBONE_ATOMS = ['C', 'CA', 'O', 'N'] # TODO: delete, seems not to be used
 MAX_STRETCH_LEN = 7
 MAX_HELIX_LEN = 11
 RATIO_ALLOWED_MASKED_RESIDUES = 0.3  # added for masking
+MIN_OVERLAPPING_RESIDUES = 5  # added for masking
 
 
 def create_motif_with_chains(pdbinf, motif):
@@ -22,24 +22,8 @@ def create_motif_with_chains(pdbinf, motif):
 	:param motif: motif with rosetta numbering
 	:return: motif as a tuple with chain and residue number
 	"""
-	motif_with_chains = [(pdbinf.chain(int(resn)), str(pdbinf.number(int(resn)))) for resn in motif]
+	motif_with_chains = [str(pdbinf.chain(int(resn))) + str(pdbinf.number(int(resn))) for resn in motif]
 	return motif_with_chains
-
-
-def convert_rosetta_numbering_to_pdb_numbering(pdbinf, resn_list=None):
-	"""
-	Function to convert the numbering of the residues from Rosetta numbering to PDB numbering
-	:param pose: input pose
-	:param resn_list: list of residue numbers in Rosetta numbering
-	:return: list of residue numbers in PDB numbering
-	"""
-	if not resn_list:
-		resn_list = [x for x in range(1, pdbinf.nres() + 1)]
-	pdb_number_resn_list = []
-	
-	for resn in resn_list:
-		pdb_number_resn_list.append(str(pdbinf.chain(int(resn)))+str(pdbinf.number(int(resn))))
-	return pdb_number_resn_list
 
 
 def check_mask_on_motif(pdbinf, motif, mask_res, debug=False):
@@ -52,7 +36,7 @@ def check_mask_on_motif(pdbinf, motif, mask_res, debug=False):
 	motif_with_chains = []
 	motif_length = len(motif)
 	min_unmasked_length = motif_length * (1 - RATIO_ALLOWED_MASKED_RESIDUES)
-	motif_pdb = convert_rosetta_numbering_to_pdb_numbering(pdbinf, motif)
+	motif_pdb = utils.convert_rosetta_numbering_to_pdb_numbering(pdbinf, motif)
 
 	# get the residues that are not in the mask
 	unmasked_motif = list(set(motif_pdb) - set(mask_res))
@@ -104,15 +88,15 @@ def modify_selected_resi(pdbinf, selected_res, pdb_number_check_resi, focus=Fals
 	return selected_res
 
 
-def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=False, debug=False):
+def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=False, edit_reslist=False, debug=False):
 	"""
 	Function to extract motifs from the receptor. Motifs are defined as patches of residues that are close to each other.
 	Note that mask_pose and focus_pose are mutually exclusive. If you want to mask residues, you need to set mask_pose.
 	:param pose: input receptor
 	:param pdb_name: basename of the receptor, extracted from the filename
-	:param mask_pose: masked residues that we do not want to include in a patch
-	:param focus_pose: residues that we would like to focus on as a binding site
-	:param focus_list: list of residues that we would like to focus on as a binding site
+	:param focus: if check_list is provided, decide if it is focus or masking mode
+	:param check_list: list of residues that we would like to focus on as a binding site
+	:param hotspot_mode: force to use the provided residues as a center of the patch
 	:param debug: print info
 	:return: list of extracted motifs
 	"""
@@ -121,8 +105,9 @@ def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=Fals
 	selected_res = surf_sel.apply(pose)
 	pdbinf = pose.pdb_info()
 
-	# remove residues from the selected ones
-	if check_list is not None:
+	# remove residues from the selected ones, but only if this is how we deal with focusing
+	# otherwise, we will remove those patches that does not have residues from the focus list
+	if (check_list is not None and edit_reslist) or (check_list is not None and hotspot_mode):
 		selected_res = modify_selected_resi(pdbinf, selected_res, check_list, focus=focus, debug=debug)
 
 	# print out residues that are selected as focus points
@@ -142,10 +127,13 @@ def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=Fals
 	num = 1
 	focus_res_motif = []
 	for i, res in enumerate(selected_res, 1):
-		if i <= 2:  # skip  2 res (too small, overlapping patches)
+		# skip  2 res (too small, overlapping patches)
+		# but for hotspot mode, this might delete important parts, so keep them
+		if i <= 2 and not focus and not hotspot_mode:
 			continue
 		if res:
-			# skip every second patch (to prevent too overlapping patches), unless if we are in focus mode
+			# skip every second patch (to prevent too overlapping patches)
+			# in hotspot mode, we force the residues in the check_list to be the center of the patch
 			if i in motifs_created and ((check_list is None and focus) or not hotspot_mode):
 				continue
 
@@ -167,7 +155,20 @@ def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=Fals
 				motif_with_chains = check_mask_on_motif(pdbinf, motif_residues, check_list, debug=debug)
 			else:
 				motif_with_chains = create_motif_with_chains(pdbinf, motif)
-
+			
+			# if focus mode, check if motif_with_chains have any residues in check_list
+			if check_list is not None and focus:
+				common_residues = set(motif_with_chains).intersection(set(check_list))
+				
+				# in hotspot mode, we keep every patch that overlaps with even one residue from the check_list
+				# in focus mode, we keep every patch that overlaps with at least MIN_OVERLAPPING_RESIDUES residues from the check_list
+				if (len(common_residues) < MIN_OVERLAPPING_RESIDUES and not hotspot_mode) or (len(common_residues) == 0 and hotspot_mode):
+					if debug:
+						print('WARNING: Motif does not contain any residues from the focus list, skipping')
+						print('motif residues:', set(motif_with_chains))
+						print('check list:', set(check_list))
+					continue
+			
 			if len(motif_with_chains) > 0:  # add checking if motif contained masked residues
 				motifs_created.append(i + 1)
 				if motif_with_chains not in motifs_with_chains:
@@ -238,48 +239,6 @@ def is_helix(stretch, s):
 		return False
 
 
-def load_and_clean_pdb(pdb_file, return_name=False):
-	"""Load and clean pdb file
-	:param pdb_file: pdb file
-	:param return_name: return name of
-	:return: pose and name of  if asked for
-	"""
-	# print working directory
-	toolbox.cleaning.cleanATOM(pdb_file)
-	prot_name = os.path.splitext(os.path.basename(pdb_file))[0]
-	print('Loading ' + prot_name + '.clean.pdb')
-	pose = pose_from_pdb(prot_name + '.clean.pdb')
-
-	if return_name:
-		return pose, prot_name
-	else:
-		return pose
-	
-def parse_mask_and_focus(args):
-	# check for case when no residues are provided
-	if args.resi_list is None and args.mask_focus is None:
-		return None, False
-	# check for invalid input
-	elif args.resi_list is not None and args.mask_focus is not None:
-		print('ERROR: Please provide either a list or a pdb file not both!')
-		sys.exit(1)
-	# process residue list
-	elif args.resi_list is not None:
-		check_list = args.resi_list.split(',')
-	# process pdb file
-	elif args.mask_focus is not None:
-		pose = load_and_clean_pdb(args.mask_focus)
-		check_list = convert_rosetta_numbering_to_pdb_numbering(pose.pdb_info())
-	
-	if not args.focus and args.hotspot_mode:
-		print('WARNING: Hotspot mode does not work with masking, omitting hotspot mode')
-		args.hotspot_mode = False
-	
-	print('mask/focus residues are: ' + ','.join(check_list))
-	
-	return check_list
-
-
 def split_to_motifs():
 	pyrosetta.init('-mute core.select.residue_selector.NeighborhoodResidueSelector -mute core')
 
@@ -300,18 +259,23 @@ def split_to_motifs():
 	parser.add_argument('-v', '--verbose', help='For debugging purposes', required=False, action='store_true',
 	                    default=False)
 	args = parser.parse_args()
-
+	
+	# if hospot mode is true, focus mode must be true
+	if args.hotspot_mode:
+		args.focus = True
+	
 	# load receptor pose
-	pose, prot_name = load_and_clean_pdb(args.input, return_name=True)
+	pose, prot_name = utils.load_and_clean_pdb(args.input, return_name=True)
 	print(args)
+	
 	# process inputs for mask and focus residues
-	check_list = parse_mask_and_focus(args)
+	check_list = utils.parse_mask_and_focus(args)
 
-	# call define_motifs function to split the surface into motifs
+	# split the surface into motifs
 	motifs = define_motifs(pose, prot_name, check_list=check_list, focus=args.focus, hotspot_mode=args.hotspot_mode, debug=args.verbose)
 
 	if args.hotspot_mode and len(motifs) != len(check_list) and args.focus:
-		print("WARNING: Number of motifs does not match number of focus residues in hotspot mode! Do all the provided residues exit on the surface?")
+		print("WARNING: Number of motifs does not match number of focus residues in hotspot mode! Do all the provided residues exist on the surface?")
 
 	print("The surface was split into " + str(len(motifs)) + " patches")
 
