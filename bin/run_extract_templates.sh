@@ -9,7 +9,7 @@
 #$2: receptor pdb
 #$3: other arguments passed by main script
 
-source $PROTOCOL_ROOT/.env ",$(echo "$(realpath "$work_dir")" | cut -d'/' -f2)"
+source $PROTOCOL_ROOT/.env ",/$(realpath "$work_dir" | cut -d'/' -f2)"
 
 matches=($(ls *matches))
 
@@ -19,5 +19,5 @@ motif=${motifs["$SLURM_ARRAY_TASK_ID"]}
 
 echo $1 > pepfile
 
-echo ${PYTHON} ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
+echo ${PYTHON} ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif" $3
 ${PYTHON} ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif" $3

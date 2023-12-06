@@ -131,14 +131,13 @@ while getopts hvw:g:c:t:fs:n:m:p:f:a:orb:l: opt; do
 			;;
 		s)
 			mask_focus=$(readlink -f $OPTARG)
-			echo $mask_focus
 			;;
 		f)
 			focus_mask_args="$focus_mask_args -f"
 			;;
 		l)
 			resi_list=$OPTARG
-			focus_mask_args="$focus_mask_args --resi_list $resi_list"
+			focus_mask_args="$focus_mask_args -l $resi_list"
 			;;
 		o)
 			hotspot_mode=1
@@ -207,12 +206,12 @@ pep_sequence="$2"
 
 # If both a pdb file or a list of residues are provided, then raise an error
 # Check if files are readable ones and if not, raise an error
-# If they are okay, copy to the working directory, get their path and add to the split_to_motifs_args
+# If they are okay, copy to the working directory, get their path and add to the focus_mask_args
 if [[ (-n "$focus_list" && -n "$mask_focus") ]]; then
 	die "Provide either PDB file or list for mask/focus residues!"
 elif [[ -n $mask_focus ]]; then
 	mask_focus=$(prepare_pdb $mask_focus)
-	split_to_motifs_args="$split_to_motifs_args -s $mask_focus"
+	focus_mask_args="$focus_mask_args -s $mask_focus"
 fi
 
 if [[ -n $native ]]; then
@@ -282,7 +281,7 @@ then
 	run_master_jid=$(zero_jobid $run_master_jid)
 	print_jobid "MASTER" $run_master_jid
 	extract_templates_jid=$(sbatch --array=0-"$n_searches"%50 --dependency=afterany:"${run_master_jid}" ${BIN_DIR}/run_extract_templates.sh \
-	                    "$pep_sequence" "$ppkrec" $focus_mask_args | awk '{print $NF}')
+	                    "$pep_sequence" "$ppkrec" "$focus_mask_args" | awk '{print $NF}')
 else
 	echo "Skipping step 4: Extracting templates"
 fi

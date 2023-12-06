@@ -20,7 +20,8 @@ INTERACTION_DIST = 5
 CLASH_DIST = 2
 
 FOCUS_OVERLAP_RESIDUES = 3
-HOTSPOT_OVERLAP_RESIDUES = 2
+HOTSPOT_OVERLAP_RESIDUES = 1
+MASK_OVERLAP_RESIDUES = 3
 
 OVERALL_MATCHES = 100
 
@@ -208,9 +209,9 @@ def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name, chec
             log.write('Complex: %s, Receptor: %s, Peptide: %s\n' % (complex_sasa, receptor_sasa, pep_sasa))
             log.write("BSA: %s\n"%bsa)
         if bsa >= cur_cutoff:
+            with open(log_name, 'a') as log:
+                log.write("%s passed second filter with BSA %s\n" % (complex_name, bsa))
             if check_list is None:
-                with open(log_name, 'a') as log:
-                    log.write("%s passed second filter with BSA %s\n" % (complex_name, bsa))
                 return complex_pose
             else:
                 print('checking for interaction with focus')
@@ -219,6 +220,8 @@ def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name, chec
                     overlap_residues = FOCUS_OVERLAP_RESIDUES
                 elif hotspot_mode:
                     overlap_residues = HOTSPOT_OVERLAP_RESIDUES
+                elif not focus and not hotspot_mode:
+                    overlap_residues = MASK_OVERLAP_RESIDUES
                     
                 # select those residues that are around the peptide and belong to chain B
                 chain_name = core.pose.get_chain_from_chain_id(2, complex_pose)
@@ -226,6 +229,7 @@ def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name, chec
                 rec_int_selector = utils.create_neighborhood_selector(INTERACTION_DIST, False)
                 
                 # we get the residues neighboring chain B, the peptide
+                rec_int_selector.set_distance(8)
                 rec_int_selector.set_focus_selector(peptide_selector)
                 
                 # we need to convert the residues to pdb numbering as the check_list is in pdb numbering
@@ -235,14 +239,23 @@ def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name, chec
                 rec_int_pdb = utils.convert_rosetta_numbering_to_pdb_numbering(complex_pose.pdb_info(), rec_int)
                 
                 # count the number of overlapping residues between the receptor interface residues and the focus residues
-                overlap = len(set(rec_int_pdb).intersection(set(check_list)))
-                print('residues touched' +','. join(rec_int_pdb) + '\n')
-                print('residues in check list' + ','.join(check_list) + '\n')
+                overlap = set(rec_int_pdb).intersection(set(check_list))
+                len_overlap = len(overlap)
+                overlap_residues_str = ','.join(overlap)
+                print('residues touched: ' +','. join(rec_int_pdb) + '\n')
+                print('residues in check list: ' + ','.join(check_list) + '\n')
                 
-                if overlap >= overlap_residues:
+                if (focus or hotspot_mode) and len_overlap >= overlap_residues:
                     with open(log_name, 'a') as log:
-                        log.write("%s passed second filter with BSA %s and %s overlapping residues\n" % (complex_name, bsa, overlap))
+                        log.write("%s passed third filter for focusing with %s overlapping residues: %s\n" % (complex_name, str(len_overlap), overlap_residues_str))
                     return complex_pose
+                elif not focus and not hotspot_mode and len_overlap <= overlap_residues:
+                    with open(log_name, 'a') as log:
+                        log.write("%s passed third filter for masking with %s overlapping residues: %s\n" % (complex_name, str(len_overlap), overlap_residues_str))
+                    return complex_pose
+                else:
+                    with open(log_name, 'a') as log:
+                        log.write("%s is filtered out by overlapping residues of only %s with focus patch: %s \n" % (complex_name, str(len_overlap), overlap_residues_str))
         else:
             with open(log_name, 'a') as log:
                 log.write(complex_name + ' is filtered by BSA: %s < %s\n' % (bsa, cur_cutoff))
@@ -408,12 +421,12 @@ def arg_parser():
     parser.add_argument('--receptor', '-r', dest='rec', default=None)  # receptor pdb
     parser.add_argument('--patch', '-a', dest='patch', default=None)  # patch pdb
     parser.add_argument('--peptide', '-p', dest='pep', default=None)  # peptide seq for docking
-    parser.add_argument('--peplen', '-l', dest='plen', default=None)  # peptide length for design
+    parser.add_argument('--peplen', '-e', dest='plen', default=None)  # peptide length for design
     
     # for the new focus version
     parser.add_argument('-f', '--focus', help='Switching between focus and masking mode', action='store_true',
                         default=False)
-    parser.add_argument('--resi_list',
+    parser.add_argument('-l', '--resi_list',
                         help='List of focus residues that should or should not form the interface, separated by comma: "A31,A56,A12"',
                         required=False, default=None)
     parser.add_argument('-s', '--mask_focus',
@@ -436,9 +449,14 @@ def main():
     # process inputs for mask and focus residues
     check_list = utils.parse_mask_and_focus(args)
     
+    # some sanity checks with the input
     if check_list is None:
         args.focus = False
         args.hotspot_mode = False
+    
+    if args.focus and args.hotspot_mode:
+        print('ERROR: Choose either focus or hotspot mode, not both!')
+        sys.exit(1)
 
     # Start process
     start_all = time.time()

@@ -107,7 +107,7 @@ def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=Fals
 
 	# remove residues from the selected ones, but only if this is how we deal with focusing
 	# otherwise, we will remove those patches that does not have residues from the focus list
-	if (check_list is not None and edit_reslist) or (check_list is not None and hotspot_mode):
+	if (check_list is not None and edit_reslist):
 		selected_res = modify_selected_resi(pdbinf, selected_res, check_list, focus=focus, debug=debug)
 
 	# print out residues that are selected as focus points
