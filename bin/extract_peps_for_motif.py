@@ -167,8 +167,12 @@ def thread_pepseq(complex_pose_name, complex_pose, pepseq, scrfxn):
 def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name, check_list=None, focus=False, hotspot_mode=False):
     complex_pose = Pose()
     complex_pose.assign(receptor_pose)
-
-    core.pose.append_subpose_to_pose(complex_pose, pose_to_cut, int(pep[0]), int(pep[-1]), True)
+    
+    # need a try-except as many times this crashes because cannot always replace terminals
+    try:
+        core.pose.append_subpose_to_pose(complex_pose, pose_to_cut, int(pep[0]), int(pep[-1]), True)
+    except RuntimeError:
+        return False
     
     pep_residues = utility.vector1_unsigned_long()
     for r in range(complex_pose.chain_begin(2), complex_pose.chain_end(2) + 1):
