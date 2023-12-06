@@ -6,9 +6,7 @@ import sys
 import pyrosetta_utils as utils
 import argparse
 
-MIN_RES_PATCH = 5 # TODO: delete, seems not to be used
 NEIGHBORS_DIST = 10
-BACKBONE_ATOMS = ['C', 'CA', 'O', 'N'] # TODO: delete, seems not to be used
 MAX_STRETCH_LEN = 7
 MAX_HELIX_LEN = 11
 RATIO_ALLOWED_MASKED_RESIDUES = 0.3  # added for masking
