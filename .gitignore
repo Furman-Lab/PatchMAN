@@ -34,3 +34,6 @@ benchmark/
 .Rproj.user
 PatchMAN_protocol.py
 bin/cluster.py
+1SSH*/
+*1ssh*
+extract_one_patch.sh
