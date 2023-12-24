@@ -278,6 +278,25 @@ def split_to_motifs():
 	print("The surface was split into " + str(len(motifs)) + " patches")
 
 
+def main():
+    inpdb = sys.argv[1] # CLEAN_PDB
+    toolbox.cleaning.cleanATOM(inpdb)
+    prot_name = os.path.splitext(os.path.basename(inpdb))[0]
+    pose = pose_from_pdb(prot_name+'.clean.pdb')
+
+    if len(sys.argv) > 2:
+        print('reading masking residues from: ' + sys.argv[2])
+        maskpdb = sys.argv[2] # mask PDB file, containing residues NOT to use
+        toolbox.cleaning.cleanATOM(maskpdb)
+        mask_prot_name = os.path.splitext(os.path.basename(maskpdb))[0]
+        mask_pose = pose_from_pdb(mask_prot_name+'.clean.pdb')
+        motifs = define_motifs(pose, prot_name, mask_pose)
+    else:
+        motifs = define_motifs(pose, prot_name)
+
+    print("The surface was split into " + str(len(motifs)) + " patches")
+
+
 if __name__ == "__main__":
 	pyrosetta.init('-mute core.select.residue_selector.NeighborhoodResidueSelector -mute core')
 

@@ -14,3 +14,4 @@ command="$MASTER/master --query $master_job --targetList $PROTOCOL_ROOT/db_list_
 echo $command
 
 $command
+

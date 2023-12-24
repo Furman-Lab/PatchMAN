@@ -26,6 +26,19 @@ validate_pdb() {
 		die "$1 is not a readable file"
 	fi
 
+  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{8}[0-9 .]{6}[ 0-9.]{6}[ A-Z0-1]{9}[0-9A-Z -]{2,4}[A-Z ]{0,2}" $1)
+  if [[ $count_atom_lines -gt 0 ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+[ -d $PROTOCOL_ROOT ] || die "Protocol root directory is not a directory: $PROTOCOL_ROOT"
+
+export PROTOCOL_ROOT=$(dirname $(realpath $BASH_SOURCE)) # changed for development purposes but could probably stay like that
+export BIN_DIR=${PROTOCOL_ROOT}/bin
+
   count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{7}[0-9 .]{6}[ 0-9.]{6}" $1)
 
   if [[ $count_atom_lines -gt 0 ]]; then
