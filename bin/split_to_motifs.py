@@ -123,7 +123,7 @@ def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=Fals
 
 	all_motifs_list = []
 	num = 1
-	focus_res_motif = []
+	central_res_motif = []
 	for i, res in enumerate(selected_res, 1):
 		# skip  2 res (too small, overlapping patches)
 		# but for hotspot mode, this might delete important parts, so keep them
@@ -175,11 +175,11 @@ def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=Fals
 
 					write_to_pdb(motif, motif_name, pose)
 					all_motifs_list.append(motif_name)
-					focus_res_motif.append(['%03d' % num, str(pdbinf.number(int(i))), ','.join(motif)])
+					central_res_motif.append(['%03d' % num, str(pdbinf.number(int(i))), ','.join(motif)])
 					num += 1
 
-	with open(pdb_name + '_focus_res_motif.txt', 'w') as f:
-		for l in focus_res_motif:
+	with open(pdb_name + '_central_res_motif.txt', 'w') as f:
+		for l in central_res_motif:
 			f.write(pdb_name + ' ' + ' '.join(l) + '\n')
 
 	return all_motifs_list
