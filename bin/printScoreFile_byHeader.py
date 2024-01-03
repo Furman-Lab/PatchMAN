@@ -30,6 +30,7 @@ def main():
                 else:
                     # select keys defined by columns from splitted line
                     split_line = line.strip().split()
+#                    print(split_line)
                     values = [split_line[i] for i in indices]
                     print(src_file + ' ' + " ".join(values))
 

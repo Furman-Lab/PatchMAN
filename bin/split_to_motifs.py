@@ -172,11 +172,11 @@ def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=Fals
 				if motif_with_chains not in motifs_with_chains:
 					motifs_with_chains.append(motif_with_chains)
 					motif_name = '%03d_' % num + pdb_name
-					num += 1
 
 					write_to_pdb(motif, motif_name, pose)
 					all_motifs_list.append(motif_name)
 					focus_res_motif.append(['%03d' % num, str(pdbinf.number(int(i))), ','.join(motif)])
+					num += 1
 
 	with open(pdb_name + '_focus_res_motif.txt', 'w') as f:
 		for l in focus_res_motif:
