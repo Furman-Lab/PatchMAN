@@ -13,7 +13,6 @@
 #           Created by Furman Lab at HUJI, 2023.          #
 ###########################################################
 
-
 die() {
 	echo >&2 -e "\nERROR: $@\n"
 	exit 1
@@ -38,15 +37,6 @@ validate_pdb() {
 
 export PROTOCOL_ROOT=$(dirname $(realpath $BASH_SOURCE)) # changed for development purposes but could probably stay like that
 export BIN_DIR=${PROTOCOL_ROOT}/bin
-
-  count_atom_lines=$(grep -Ec "^ATOM  [ 0-9]{5} [A-Z0-9 ']{4}[A-Z ][A-Z0-9 ]{3} [A-Z ][ 0-9]{4}[A-Z ] {4}[0-9. -]{8}[0-9. -]{8}[0-9. -]{7}[0-9 .]{6}[ 0-9.]{6}" $1)
-
-  if [[ $count_atom_lines -gt 0 ]]; then
-    return 0
-  else
-  	die "$1 is not a valid PDB file"
-  fi
-}
 
 # if jobid is empty, set it to 0
 zero_jobid() {
