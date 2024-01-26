@@ -87,6 +87,7 @@ usage() {
 					-n job name (Default: PatchMAN_JOB)
 					-v print information about the job
 					-w working directory (Default: current directory)
+					-a native PDB if exists. Needs to be exactly the same chains and lengths for both receptor and peptide
 					-t number of structures to generate (Default: 1)
 					-c master cutoff (Default: 1.5)
 					-o hotspot mode, only the residues in focus will be used as patch centers (Default: false)
