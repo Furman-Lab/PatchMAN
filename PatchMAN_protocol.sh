@@ -226,6 +226,11 @@ fi
 if [[ -n $benchmark ]]; then
 	# grep the first 4 letters of the input pdb from the benchmark file and write a new one, splitting the line by '|'
 	grep -m 1 -Ei "${receptor_base:0:4}" $benchmark | sed 's/|/\n/g' > benchmark_file
+
+	# For benchmarking, filter out those pdbs that are in the list of similar PDBs
+        grep -v -i -f benchmark_file $PROTOCOL_ROOT/db_list_30nonred > custom_db_list_30nonred
+
+	master_args="$master_args custom_db_list_30nonred"
 	fpd_args="$fpd_args -b"
 fi
 
@@ -274,7 +279,7 @@ if [[ 3 -ge $step_from && 3 -le $step_to ]]
 then
 	prepack_receptor_jid=$(zero_jobid $prepack_receptor_jid)
 	print_jobid "PREPACK" $prepack_receptor_jid
-	run_master_jid=$(sbatch --dependency=afterok:"${prepack_receptor_jid}" --array=0-"$n_searches"%50 ${BIN_DIR}/run_master.sh $master_cutoff | awk '{print $NF}')
+	run_master_jid=$(sbatch --dependency=afterok:"${prepack_receptor_jid}" --array=0-"$n_searches"%50 ${BIN_DIR}/run_master.sh $master_cutoff $master_args| awk '{print $NF}')
 else
 	echo "Skipping step 3: Running MASTER"
 fi
