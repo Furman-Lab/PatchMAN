@@ -37,3 +37,4 @@ bin/cluster.py
 1SSH*/
 *1ssh*
 extract_one_patch.sh
+submit_1ssh.sh
