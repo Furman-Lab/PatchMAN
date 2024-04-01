@@ -2,7 +2,7 @@ from pyrosetta import *
 from pyrosetta.rosetta import *
 import numpy as np
 
-
+# This function currently returns most of the protein as surface, it is not clear why.
 def create_layer_selector():
     lay_sel = rosetta.core.select.residue_selector.LayerSelector()
     lay_sel.set_layers(0, 0, 1)
