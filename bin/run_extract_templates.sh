@@ -3,13 +3,13 @@
 #SBATCH --time=93:00:00
 #SBATCH --mem=1600m
 #SBATCH --nice=8000
-#SBATCH --module="singularity"
+#SBATCH --get-user-env
 
 #$1: peptide sequence
 #$2: receptor pdb
 #$3: other arguments passed by main script
 
-source $PROTOCOL_ROOT/.env ",/$(realpath "$work_dir" | cut -d'/' -f2)"
+#source $PROTOCOL_ROOT/.env ",/$(realpath "$work_dir" | cut -d'/' -f2)"
 
 matches=($(ls *matches))
 
