@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=extract_temp
-#SBATCH --time=93:00:00
+#SBATCH --time=3:00:00
 #SBATCH --mem=1600m
 #SBATCH --nice=8000
 #SBATCH --get-user-env
