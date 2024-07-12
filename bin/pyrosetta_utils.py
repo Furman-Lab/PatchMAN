@@ -56,7 +56,18 @@ def parse_mask_and_focus(args):
     elif args.mask_focus is not None:
         pose = load_and_clean_pdb(args.mask_focus)
         check_list = convert_rosetta_numbering_to_pdb_numbering(pose.pdb_info())
-    
+
+    # when in hotspot mode, add -1 and + residues to the list
+    # if args.hotspot_mode:
+    #     new_list = []
+    #     print('check_list')
+    #     print(check_list)
+    #     for res in check_list:
+    #         new_list.append(res)
+    #         new_list.append(res[0]+str(int(res[1:]) - 1))
+    #         new_list.append(res[0]+str(int(res[1:]) + 1))
+    #     check_list = new_list
+
     if not args.focus and args.hotspot_mode:
         print('WARNING: Hotspot mode does not work with masking, omitting hotspot mode')
         args.hotspot_mode = False

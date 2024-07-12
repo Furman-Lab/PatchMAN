@@ -65,7 +65,7 @@ print_jobid(){
 export work_dir=$(pwd)
 job_name="PatchMAN_JOB"
 cluster_radius="2.0"
-min_rec_bb="true"
+min_rec_bb="false"
 nstruct=''
 master_cutoff="1.5"
 step_from=1
@@ -85,7 +85,7 @@ usage() {
 					-g log file (Default is stdout)
 					-e error log file (Default is stderr)
 					-n job name (Default: PatchMAN_JOB)
-					-v print information about the job
+					-v print information about the job (debug)
 					-w working directory (Default: current directory)
 					-a native PDB if exists. Needs to be exactly the same chains and lengths for both receptor and peptide
 					-t number of structures to generate (Default: 1)
