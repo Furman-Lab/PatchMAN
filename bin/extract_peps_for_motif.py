@@ -20,7 +20,6 @@ INTERACTION_DIST = 5
 CLASH_DIST = 2
 
 FOCUS_OVERLAP_RESIDUES = 3
-HOTSPOT_OVERLAP_RESIDUES = 1
 MASK_OVERLAP_RESIDUES = 3
 
 OVERALL_MATCHES = 100
@@ -35,8 +34,6 @@ Create initial complexes: extract peptides from proteins with motifs similar to 
 
 
 def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scrfxn, design, check_list=None, focus=False, hotspot_mode=False):
-    """For each motif there are N matches. Currently I limit them to the 1000 best RMSD matches. Probably should
-    sample more distant matches too."""
     single_motif_complexes = 0
 
     start_motif = time.time()
@@ -220,10 +217,8 @@ def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name, chec
             else:
                 print('checking for interaction with focus')
                 # when focusing, we also want to check if the patch residues are in the focus interface
-                if focus:
+                if focus or hotspot_mode:
                     overlap_residues = FOCUS_OVERLAP_RESIDUES
-                elif hotspot_mode:
-                    overlap_residues = HOTSPOT_OVERLAP_RESIDUES
                 elif not focus and not hotspot_mode:
                     overlap_residues = MASK_OVERLAP_RESIDUES
                     
