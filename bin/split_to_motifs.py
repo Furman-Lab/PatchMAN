@@ -61,7 +61,7 @@ def check_mask_on_motif(pdbinf, motif, mask_res, debug=False):
 	return motif_with_chains
 
 
-def create_motif_around_center(center_res, namespace, debug=False):
+def create_motif_around_center(center_res_i, namespace, debug=False):
 	"""
 	Function to create a motif around the center residue with the given distance
 	:param pose: input pose
@@ -71,7 +71,7 @@ def create_motif_around_center(center_res, namespace, debug=False):
 	:return: list of residues that are in the motif
 	"""
 	# Define center residue of patch
-	center_res = utils.create_index_selector([center_res])
+	center_res = utils.create_index_selector([center_res_i])
 	namespace.neighborhood_selector.set_focus(center_res.apply(namespace.pose))
 
 	# Use CA for selecting the residues in certain distance
@@ -102,13 +102,13 @@ def write_center_residues(namespace):
 
 def finalize_motif(motif, motif_with_chains, namespace, i):
 	"""Finalize the motif and save it to the lists"""
+	namespace.motifs_created.append(i + 1)
 	if motif_with_chains not in namespace.motifs_with_chains:
-		namespace.motifs_created.append(i + 1)
 		namespace.motifs_with_chains.append(motif_with_chains)
 		motif_name = '%03d_' % namespace.num + namespace.pdb_name
+		namespace.all_motifs_list.append(motif_name)
 
 		write_to_pdb(motif, motif_name, namespace.pose)
-		namespace.all_motifs_list.append(motif_name)
 		namespace.central_res_motif.append(['%03d' % namespace.num, str(namespace.pdbinf.number(int(i))), ','.join(motif)])
 		namespace.num += 1
 
@@ -120,22 +120,19 @@ def normal_mode(namespace, debug=False):
 
 	:return: list of extracted motifs
 	"""
-
 	for i, res in enumerate(namespace.selected_res, 1):
 		if res:
 			# skip every second residue to be considered as patch center (to prevent too overlapping patches)
 			if i in namespace.motifs_created or i <= 2:
 				continue
-
 			# create motif around the center residue
 			motif, _ = create_motif_around_center(i, namespace, debug=debug)
 			motif_with_chains = create_motif_with_chains(namespace.pdbinf, motif)
 
-			if len(motif_with_chains) > 0:
-				finalize_motif(motif, motif_with_chains, namespace, i)
+			finalize_motif(motif, motif_with_chains, namespace, i)
 
 
-def focus_run(check_list, namespace, debug=False):
+def focus_run(check_list, namespace, hotspot=False, debug=False):
 	"""
 	Focus mode of the script, when we are defining a larger binding site on the surface
 	:param debug: print info
@@ -156,7 +153,7 @@ def focus_run(check_list, namespace, debug=False):
 				common_residues = set(motif_with_chains).intersection(set(check_list))
 
 				# in focus mode, we keep every patch that overlaps with at least 5 residues from the check_list
-				if len(common_residues) > 4:
+				if len(common_residues) > 4 or (hotspot and len(common_residues) > 2):
 					finalize_motif(motif, motif_with_chains, namespace, i)
 				else:
 					if debug:
@@ -192,39 +189,39 @@ def mask_run(check_list, namespace, debug=False):
 					print('mask residue list:', set(check_list))
 
 
-def hotspot_run(check_list, namespace, debug=False):
-	"""
-	Hotspot mode of the script, when a short list of interacting residues are provided
-	:param debug: print info
+# def hotspot_run(check_list, namespace, debug=False):
+# 	"""
+# 	Hotspot mode of the script, when a short list of interacting residues are provided
+# 	:param debug: print info
+#
+# 	:return: list of extracted motifs
+# 	"""
+# 	print('Hotspot mode')
+#
+# 	for i, res in enumerate(namespace.selected_res, 1):
+# 		if res:
+# 			# convert i to pdb numbering and check if part of check_list. Always use as a center of patch
+# 			pdb_num = str(namespace.pdbinf.chain(int(i))) + str(namespace.pdbinf.number(int(i)))
+# 			if (i in namespace.motifs_created or i <= 2):# and pdb_num not in check_list:
+# 				continue
+#
+# 			# create motif around the center residue
+# 			motif, _ = create_motif_around_center(i, namespace, debug=debug)
+# 			motif_with_chains = create_motif_with_chains(namespace.pdbinf, motif)
+#
+# 			common_residues = set(motif_with_chains).intersection(set(check_list))
+#
+# 			if len(common_residues) > 0:
+# 				finalize_motif(motif, motif_with_chains, namespace, i)
+# 			else:
+# 				if debug:
+# 					print('WARNING: Motif does not contain any residues from the hotspot list, skipping')
+# 					print('motif residues:', set(motif_with_chains))
+# 					print('focus residue list:', set(check_list))
+# 				continue
 
-	:return: list of extracted motifs
-	"""
-	print('Hotspot mode')
 
-	for i, res in enumerate(namespace.selected_res, 1):
-		if res:
-			# convert i to pdb numbering and check if part of check_list. Always use as a center of patch
-			pdb_num = str(namespace.pdbinf.chain(int(i))) + str(namespace.pdbinf.number(int(i)))
-			if (i in namespace.motifs_created or i <= 2) and pdb_num not in check_list:
-				continue
-
-			# create motif around the center residue
-			motif, _ = create_motif_around_center(i, namespace, debug=debug)
-			motif_with_chains = create_motif_with_chains(namespace.pdbinf, motif)
-
-			common_residues = set(motif_with_chains).intersection(set(check_list))
-
-			if len(common_residues) > 0:
-				finalize_motif(motif, motif_with_chains, namespace, i)
-			else:
-				if debug:
-					print('WARNING: Motif does not contain any residues from the hotspot list, skipping')
-					print('motif residues:', set(motif_with_chains))
-					print('focus residue list:', set(check_list))
-				continue
-
-
-def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=False, debug=False):
+def define_motifs(pose, pdb_name, check_list=None, focus=False, hotspot_mode=False, debug=False):
 	"""
 	Function to extract motifs from the receptor. Motifs are defined as patches of residues that are close to each other.
 	Note that mask_pose and focus_pose are mutually exclusive. If you want to mask residues, you need to set mask_pose.
@@ -237,6 +234,7 @@ def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=Fals
 
 	:return: list of extracted motifs
 	"""
+	pose.display_secstruct() # recalculates secondary structure assignments with DSSP and stores it
 
 	# Get surface residues
 	surf_sel = utils.create_layer_selector()
@@ -261,6 +259,7 @@ def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=Fals
 		all_motifs_list=[], # list of all extracted and accepted motifs
 		central_res_motif=[], # central residues of the motifs
 	)
+
 	print('Focus residues:', check_list)
 	print('Focus mode:', focus)
 	print('Hotspot mode:', hotspot_mode)
@@ -270,7 +269,8 @@ def define_motifs(pose, pdb_name, check_list=None, focus=True, hotspot_mode=Fals
 	elif focus and check_list and not hotspot_mode:
 		focus_run(check_list, helper_data, debug=debug)
 	elif hotspot_mode and check_list:
-		hotspot_run(check_list, helper_data, debug=debug)
+		focus_run(check_list, helper_data, hotspot=True, debug=debug)
+		# hotspot_run(check_list, helper_data, debug=debug)
 	elif not focus and check_list and not hotspot_mode:
 		mask_run(check_list, helper_data, debug=debug)
 	else:
@@ -296,7 +296,7 @@ def refine_motif(motif, pose):
 	"""Stretches are not longer than MAX_LENGTH, no single residues"""
 	stretch_len = 1
 	res_to_remove = []
-	# pose.display_secstruct()
+	#pose.display_secstruct()
 	s = pose.secstruct()
 	for idx, resid in enumerate(motif):
 		if idx == len(motif) - 1:  # The END
@@ -354,22 +354,17 @@ def split_to_motifs():
 	parser.add_argument('-v', '--verbose', help='For debugging purposes', required=False, action='store_true',
 	                    default=False)
 	args = parser.parse_args()
-	
-	# if hotspot mode is true, focus mode must be true
-	if args.hotspot_mode:
-		args.focus = True
-	
+
 	# load receptor pose
 	pose, prot_name = utils.load_and_clean_pdb(args.input, return_name=True)
 	print(args)
-	
+
 	# process inputs for mask and focus residues
 	check_list = utils.parse_mask_and_focus(args)
 
 	# split the surface into motifs
 	motifs = define_motifs(pose, prot_name, check_list=check_list, focus=args.focus, hotspot_mode=args.hotspot_mode, debug=args.verbose)
-
-	print("The surface was split into " + str(len(motifs)) + " patches")
+	print("The surface was split into " + str(len(set(motifs))) + " patches")
 
 
 # def main():
