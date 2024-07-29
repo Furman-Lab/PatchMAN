@@ -107,6 +107,8 @@ then
 fi
 echo "Refinement will generate $nstruct decoys per input structure"
 
+# If being rerun, it writes into the same file
+rm score.sc decoys.silent -f
 
 
 fpd_args="-in:file:l input_list -scorefile score.sc -out:file:silent_struct_type binary \
