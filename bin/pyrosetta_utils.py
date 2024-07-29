@@ -19,11 +19,9 @@ def create_index_selector(res_nums):
 
 
 def create_neighborhood_selector(cutoff, include_focus):
-
     neighborhood_selector = rosetta.core.select.residue_selector.NeighborhoodResidueSelector()
     neighborhood_selector.set_include_focus_in_subset(include_focus)
     neighborhood_selector.set_distance(cutoff)
-
     return neighborhood_selector
 
 
@@ -57,23 +55,12 @@ def parse_mask_and_focus(args):
         pose = load_and_clean_pdb(args.mask_focus)
         check_list = convert_rosetta_numbering_to_pdb_numbering(pose.pdb_info())
 
-    # when in hotspot mode, add -1 and + residues to the list
-    # if args.hotspot_mode:
-    #     new_list = []
-    #     print('check_list')
-    #     print(check_list)
-    #     for res in check_list:
-    #         new_list.append(res)
-    #         new_list.append(res[0]+str(int(res[1:]) - 1))
-    #         new_list.append(res[0]+str(int(res[1:]) + 1))
-    #     check_list = new_list
-
     if not args.focus and args.hotspot_mode:
-        print('WARNING: Hotspot mode does not work with masking, omitting hotspot mode')
-        args.hotspot_mode = False
-    
+        print('ERROR: Hotspot mode does not work with masking, omitting hotspot mode')
+        sys.exit(1)
+
     print('mask/focus residues are: ' + ','.join(check_list))
-    
+
     return check_list
 
 def load_and_clean_pdb(pdb_file, return_name=False):
