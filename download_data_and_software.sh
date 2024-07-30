@@ -10,10 +10,8 @@
 ###########################################################
 
 
-# Get Rosetta and PyRosetta username and password from .env file. Create this file based on sample.env
-# For Rosetta, obtain a license from: https://els2.comotion.uw.edu/product/rosetta
-# For PyRosetta, obtain a license from: https://els2.comotion.uw.edu/product/pyrosetta
-# Register for MASTER at https://grigoryanlab.org/index.php?sec=download&soft=MASTER and insert the URL of MASTER-v1.6 at URL_MASTER in the .env file
+# Register for MASTER at https://grigoryanlab.org/index.php?sec=download&soft=MASTER and insert the URL of MASTER-v1.6 here
+MASTER_URL=""
 
 
 source .env
@@ -37,7 +35,7 @@ echo "Downloading MASTER and mslib..."
 curl -f -o $CONTAINER_DIR/master.tar.gz "${MASTER_URL}"
 curl -f -o $CONTAINER_DIR/mslib.tar.gz "https://grigoryanlab.org/msl/msl-static-Linux-x86-64_1.2.2.7.tar.gz"
 
-# Download OpenMPI that matches with host distribution. If you need an other one, change OMPI_VERSION.
+# For singularity, download OpenMPI that matches with host distribution. If you need an other one, change OMPI_VERSION.
 echo " Downloading OpenMPI..."
 OMPI_VERSION=$(mpirun --version | head -1 | cut -d ' ' -f4) # change this to match your mpi version!
 OMPI_SHORT_VERSION=$(echo $OMPI_VERSION | cut -d '.' -f1-2)

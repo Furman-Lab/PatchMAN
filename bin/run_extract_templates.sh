@@ -3,6 +3,7 @@
 #SBATCH --time=93:00:00
 #SBATCH --mem=1600m
 #SBATCH --nice=8000
+#SBATCH --get-user-env
 
 matches=($(ls *matches))
 
@@ -13,7 +14,6 @@ motif=${motifs["$SLURM_ARRAY_TASK_ID"]}
 echo $1 > pepfile
 
 # For old DB uncomment:
-python ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
+echo ${PYTHON}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
+${PYTHON} ${BIN_DIR}/extract_peps_for_motif.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"
 
-# For new DB uncomment
-#python ${BIN_DIR}/extract_templates_newDB.py -m "$match_list" -p pepfile -r "$2" --patch "$motif"

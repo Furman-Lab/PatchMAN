@@ -5,9 +5,7 @@
 #SBATCH	--mem-per-cpu=1600
 #SBATCH	--get-user-env
 #SBATCH --ntasks=150
-##SBATCH --module="openmpi/2.1.6"
 
-module load openmpi/2.1.6
 ls *0001.pdb > input_list;
 n_templates=`wc -l input_list | gawk '{print $1}'`;
 min_nstruct=`gawk "BEGIN {print $n_templates * 10}"`;

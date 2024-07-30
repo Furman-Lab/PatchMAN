@@ -21,7 +21,7 @@ CLASH_DIST = 2
 
 OVERALL_MATCHES = 100
 
-DB_PATH = '/vol/ek/share/databases/master_clean/'
+DB_PATH = os.environ['DB_PATH']
 
 """Receives a list of matches for *1* motif, the receptor pdb file and the peptide sequence.
 Create initial complexes: extract peptides from proteins with motifs similar to the query, thread the pepseq with fixbb.

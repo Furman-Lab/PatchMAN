@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --time=93:00:00
 #SBATCH --mem=2000m
+#SBATCH --get-user-env
 
 # sort by reweighted_sc
 printScoreFile_byHeader.pl score.sc reweighted_sc I_sc rmsBB rmsBB_if description | gawk '{print $2, $3, $4, $5, $6}' > short.sc
@@ -32,4 +33,4 @@ plen=`echo ${#peps}`
 R=$2 #radius arg
 actualR=`date | awk '{print sqrt('$plen'/'$len')*'$R'}'`
 echo actual radius is "$actualR"
-$ROSETTA_BIN/cluster.linuxgccrelease -in:file:silent ../decoys.silent -in:file:silent_struct_type binary -cluster:radius "$actualR" -in:file:fullatom -tags `cat ../top1percent` > clog
+$ROSETTA_BIN/cluster.mpiserialization.linuxgccrelease -in:file:silent ../decoys.silent -in:file:silent_struct_type binary -cluster:radius "$actualR" -in:file:fullatom -tags `cat ../top1percent` > clog

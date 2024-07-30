@@ -10,12 +10,6 @@ from pyrosetta.rosetta.core.pack.task import operation
 #Protocols
 from pyrosetta.rosetta.protocols import minimization_packing as pack_min
 
-SBATCH_HEADER = '#!/bin/sh\n' \
-                '#SBATCH --ntasks={ntasks}\n' \
-                '#SBATCH --time=50:00:00\n' \
-                '#SBATCH --get-user-env\n' \
-                '#SBATCH --mem-per-cpu=1600m\n'
-
 ONE_LETTER_AA = ('G', 'A', 'V', 'L', 'I', 'M', 'F', 'Y', 'W', 'R',
                  'C', 'N', 'Q', 'T', 'S', 'P', 'H', 'K', 'D', 'E')
 
@@ -99,39 +93,6 @@ def fixbb_design(lig_selection, filename, pepseq, scrfxn):
 
     os.remove(filename + '_resfile')
 
-
-def run_fpd(models, receptor_name, native):
-
-    write_fpd_flags(models, native, receptor_name)
-
-    with open('sbatch_run', 'w') as sbatch:
-        sbatch.write(SBATCH_HEADER.format(ntasks=100))
-        sbatch.write('mpirun /vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/source/bin/'
-                     'FlexPepDocking.mpiserialization.linuxgccrelease @flags > fpd_log')
-
-    os.system('sbatch sbatch_run')
-
-
-def write_fpd_flags(models, native, receptor_name):
-    with open('input_list', 'w') as ilist:
-        for model in models:
-            ilist.write(model + '\n')
-    flags_string = '-in:file:l input_list\n' \
-                   '-scorefile fpd_score.sc\n' \
-                   '-out:file:silent_struct_type binary\n' \
-                   '-out:file:silent decoys.silent\n' \
-                   '-lowres_preoptimize\n' \
-                   '-flexPepDocking:pep_refine\n' \
-                   '-flexPepDocking:flexpep_score_only\n' \
-                   '-nstruct 100\n' \
-                   '-ex1\n' \
-                   '-ex2aro\n' \
-                   '-use_input_sc\n' \
-                   '-unboundrot {receptor}\n'.format(receptor=receptor_name)
-    if native:
-        flags_string += '-native {}'.format(native)
-    with open('flags', 'w') as flags:
-        flags.write(flags_string)
 
 def prepack(pose):
 
