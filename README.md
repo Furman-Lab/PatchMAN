@@ -15,12 +15,12 @@ The protocol consists of 4 consecutive steps: (1) Definition of surface patches 
 ### Installation
 
 #### Downloading software and data
-1. Register for [MASTER v1.6](https://grigoryanlab.org/index.php?sec=get&soft=MASTER) and obtain download URL.
+1. Register for [MASTER v1.6]([https://grigoryanlab.org/index.php?sec=get&soft=MASTER](https://grigoryanlab.org/index.php?sec=download&soft=MASTER)) and obtain download URL.
 2. Create a .env file to contain login information: ```cp sample.env .env```
-3. Edit `.env` file with the Rosetta and PyRosetta usernames and passwords and MASTER's URL.
+3. Edit `download_data_and_software.sh` file with MASTER's URL.
 4. Run `bash download_data_and_software.sh` that will take care of downloading all the required files and extracting the database for MASTER search into the `databases/masterDB` and `databases/master_clean` directory. Downloading Rosetta, PyRosetta and the MASTER database can take significant amount of time, depending on your network. The script downloads the versions of the softwares that are used in the paper.
 
-:exclamation: Note: Running MPI in Singularity containers require that the version of the hose and container MPI match. The script automatically detects the version of host OpenMPI (required to speed up FlexPepDock runs) and downloads it. If the container is not built on the host computer that will run it, the variable OMPI_VERSION might need to be manually modified.
+:exclamation: Note: Running MPI in Singularity containers require that the version of the hose and container MPI match. The script automatically detects the version of host OpenMPI (required to speed up FlexPepDock runs) and downloads it. If the container is not built on the host computer that will run it, the variable `OMPI_VERSION` might need to be manually modified.
 
 
 #### Option 1: Installation with Singularity containers (recommended)
@@ -32,6 +32,7 @@ sudo singularity build rosetta.sif rosetta.def   # compiling Rosetta can take si
 sudo singularity build python.sif python.def    
 sudo singularity build master.sif master.def     # this also takes care of patching PatchMAN
 ```
+
 #### Option 2: Installation without containers
 
 - To install python packages and [PyRosetta](https://www.pyrosetta.org/downloads), create a virtual environment and activate it. One example:
@@ -104,19 +105,15 @@ The peptide can contain post-translational modifications, denoted by Rosetta sta
 A test run of PatchMAN can be performed on the 1ssh.pdb in the `test/` directory. Turning off receptor backbone minimization for testing purposes decreases runtime:
 
 ```
-cd test/
-../PatchMAN_protocol.sh -m false 1ssh.pdb EGPPPAMPARPT
+PatchMAN_protocol.sh -m false -w test/ 1ssh.pdb EGPPPAMPARPT
 ```
 
 ### Running parameters
 ```
 -m minimize receptor backbone (default: false)
-
 -w working directory (Default: current directory)
 -c master cutoff (Default: 1.5)
 -n job name (Default: PatchMAN_JOB)
--g log file (Default is stdout)
--e error log file (Default is stderr)
 -v verbose mode, print information about the job
 ```
 
