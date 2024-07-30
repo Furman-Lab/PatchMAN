@@ -93,7 +93,7 @@ usage() {
 	USAGE
 }
 
-while getopts hvw:g:c:m:a:p: opt; do
+while getopts hvw:c:m:a:p: opt; do
 	case $opt in
 		h)
 			usage
@@ -101,9 +101,6 @@ while getopts hvw:g:c:m:a:p: opt; do
 			;;
 		a)
 			native=$(readlink -f $OPTARG)
-			;;
-		g)
-			logs_dir=$OPTARG
 			;;
 		c)
 			master_cutoff=$OPTARG
