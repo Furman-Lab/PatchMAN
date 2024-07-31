@@ -1,20 +1,14 @@
-#!/vol/ek/Home/alisa/python3.5/bin/python3.5
+
 
 from pyrosetta import *
 from pyrosetta.rosetta import *
 
-# #Core
-# from pyrosetta.rosetta.core.pack.task import TaskFactory
-# from pyrosetta.rosetta.core.pack.task import operation
-#
-# #Protocols
-# from pyrosetta.rosetta.protocols import minimization_packing as pack_min
+#Core
+from pyrosetta.rosetta.core.pack.task import TaskFactory
+from pyrosetta.rosetta.core.pack.task import operation
 
-SBATCH_HEADER = '#!/bin/sh\n' \
-                '#SBATCH --ntasks={ntasks}\n' \
-                '#SBATCH --time=50:00:00\n' \
-                '#SBATCH --get-user-env\n' \
-                '#SBATCH --mem-per-cpu=1600m\n'
+#Protocols
+from pyrosetta.rosetta.protocols import minimization_packing as pack_min
 
 ONE_LETTER_AA = ('G', 'A', 'V', 'L', 'I', 'M', 'F', 'Y', 'W', 'R',
                  'C', 'N', 'Q', 'T', 'S', 'P', 'H', 'K', 'D', 'E')
@@ -100,56 +94,35 @@ def fixbb_design(lig_selection, filename, pepseq, scrfxn):
     os.remove(filename + '_resfile')
 
 
-def run_fpd(models, receptor_name, native):
+def prepack(pose):
 
-    write_fpd_flags(models, native, receptor_name)
+    new_pose = pose.clone()
 
-    with open('sbatch_run', 'w') as sbatch:
-        sbatch.write(SBATCH_HEADER.format(ntasks=100))
-        sbatch.write('mpirun /vol/ek/share/rosetta/rosetta_src_2019.14.60699_bundle/main/source/bin/'
-                     'FlexPepDocking.mpiserialization.linuxgccrelease @flags > fpd_log')
+    tf = TaskFactory()
+    tf.push_back(operation.InitializeFromCommandline())
+    tf.push_back(operation.RestrictToRepacking())
+    tf.push_back(operation.IncludeCurrent())
+    tf.push_back(operation.NoRepackDisulfides())
 
-    os.system('sbatch sbatch_run')
+    packer = pack_min.PackRotamersMover()
+    packer.task_factory(tf)
 
+    packer.apply(new_pose)
 
-def write_fpd_flags(models, native, receptor_name):
-    with open('input_list', 'w') as ilist:
-        for model in models:
-            ilist.write(model + '\n')
-    flags_string = '-in:file:l input_list\n' \
-                   '-scorefile fpd_score.sc\n' \
-                   '-out:file:silent_struct_type binary\n' \
-                   '-out:file:silent decoys.silent\n' \
-                   '-lowres_preoptimize\n' \
-                   '-flexPepDocking:pep_refine\n' \
-                   '-flexPepDocking:flexpep_score_only\n' \
-                   '-nstruct 100\n' \
-                   '-ex1\n' \
-                   '-ex2aro\n' \
-                   '-use_input_sc\n' \
-                   '-unboundrot {receptor}\n'.format(receptor=receptor_name)
-    if native:
-        flags_string += '-native {}'.format(native)
-    with open('flags', 'w') as flags:
-        flags.write(flags_string)
+    return new_pose
 
-# def prepack(pose):
-#
-#     new_pose = pose.clone()
-#
-#     tf = TaskFactory()
-#     tf.push_back(operation.InitializeFromCommandline())
-#     tf.push_back(operation.RestrictToRepacking())
-#     tf.push_back(operation.IncludeCurrent())
-#     tf.push_back(operation.NoRepackDisulfides())
-#
-#     packer = pack_min.PackRotamersMover()
-#     packer.task_factory(tf)
-#
-#     # min = pack_min.MinMover()
-#     # min =
-#
-#     packer.apply(new_pose)
-#
-#     return new_pose
+def prepack_min(pose):
+    new_pose = pose.clone
 
+    prepack(new_pose)
+
+    mm = MoveMap()
+    mm.set_bb(False)
+    mm.set_chi(True)
+
+    minmover = pack_min.MinMover()
+    minmover.movemap(mm)
+
+    minmover.apply(new_pose)
+
+    return new_pose
