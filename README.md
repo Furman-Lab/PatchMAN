@@ -10,6 +10,11 @@ PatchMAN (Patch-Motif AligNments) maps the receptor surface for local structural
 
 The protocol consists of 4 consecutive steps: (1) Definition of surface patches on the receptor; (2) Identification of structural motif matches in protein structures, and an interacting fragment that can be used as template for the bound peptide; (3) Generation of the peptide-protein complex template structure, by superimposing the interacting peptide back onto the receptor, and (4) Replacing side chains according to the peptide sequence (threading), refinement and scoring of the model.
 
+### What's new in v2.0?
+- BSA filter added to improve efficiency
+- nstruct is calculated automatically
+- Added scripts to ease installation
+
 ---
 
 ### Installation
