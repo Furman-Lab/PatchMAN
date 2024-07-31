@@ -122,7 +122,7 @@ PatchMAN_protocol.sh -m false -w test/ 1ssh.pdb EGPPPAMPARPT
 
 **PatchMAN docking: Modeling peptide-protein interactions in the context of the receptor surface**  
 Alisa Khramushin, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman  
-*bioRxiv 2021.09.02.458699; doi:https://doi.org/10.1101/2021.09.02.458699*  
+*Proceedings of the National Academy of Sciences 119.18 (2022): e2121153119.*
 
 Please also cite the following papers:
 
