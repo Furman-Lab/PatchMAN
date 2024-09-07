@@ -20,6 +20,7 @@ INTERACTION_DIST = 5
 CLASH_DIST = 2
 
 FOCUS_OVERLAP_RESIDUES = 3
+HOTSPOT_OVERLAP_RESIDUES = 1
 MASK_OVERLAP_RESIDUES = 3
 
 OVERALL_MATCHES = 100
@@ -34,6 +35,8 @@ Create initial complexes: extract peptides from proteins with motifs similar to 
 
 
 def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scrfxn, design, check_list=None, focus=False, hotspot_mode=False):
+    """For each motif there are N matches. Currently I limit them to the 1000 best RMSD matches. Probably should
+    sample more distant matches too."""
     single_motif_complexes = 0
 
     start_motif = time.time()
@@ -160,26 +163,35 @@ def thread_pepseq(complex_pose_name, complex_pose, pepseq, scrfxn):
     else:
         return True
 
+def remove_ssbond_lines(input_file, output_file):
+    with open(input_file, 'r') as file:
+        lines = file.readlines()
+
+    with open(output_file, 'w') as file:
+        file.writelines(line for line in lines if not line.startswith("SSBOND"))
+
 
 def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name, check_list=None, focus=False, hotspot_mode=False):
     complex_pose = Pose()
     complex_pose.assign(receptor_pose)
-    
+
     # need a try-except as many times this crashes because cannot always replace terminals
     try:
         core.pose.append_subpose_to_pose(complex_pose, pose_to_cut, int(pep[0]), int(pep[-1]), True)
     except RuntimeError:
         return False
-    
+
     pep_residues = utility.vector1_unsigned_long()
     for r in range(complex_pose.chain_begin(2), complex_pose.chain_end(2) + 1):
         pep_residues.append(r)
     pep_pose = Pose()
     pep_pose.assign(complex_pose)
     core.pose.pdbslice(pep_pose, pep_residues)
-
     complex_pose.dump_pdb(complex_name)
-    
+
+    # since the receptor is renumbered, ss-bonds are a problem. Remove them
+    remove_ssbond_lines(complex_name, complex_name)
+
     with open(log_name, 'a') as log:
         log.write('Complex %s\n' % complex_name)
     #### NOTE
@@ -217,33 +229,35 @@ def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name, chec
             else:
                 print('checking for interaction with focus')
                 # when focusing, we also want to check if the patch residues are in the focus interface
-                if focus or hotspot_mode:
+                if focus:
                     overlap_residues = FOCUS_OVERLAP_RESIDUES
+                elif hotspot_mode:
+                    overlap_residues = HOTSPOT_OVERLAP_RESIDUES
                 elif not focus and not hotspot_mode:
                     overlap_residues = MASK_OVERLAP_RESIDUES
-                    
+
                 # select those residues that are around the peptide and belong to chain B
                 chain_name = core.pose.get_chain_from_chain_id(2, complex_pose)
                 peptide_selector = core.select.residue_selector.ChainSelector(chain_name) # we want only neighbors from the receptor
                 rec_int_selector = utils.create_neighborhood_selector(INTERACTION_DIST, False)
-                
+
                 # we get the residues neighboring chain B, the peptide
                 rec_int_selector.set_distance(8)
                 rec_int_selector.set_focus_selector(peptide_selector)
-                
+
                 # we need to convert the residues to pdb numbering as the check_list is in pdb numbering
                 rec_int_residues = core.select.get_residues_from_subset(rec_int_selector.apply(complex_pose))
                 rec_int = list(map(str, rec_int_residues))
-                
+
                 rec_int_pdb = utils.convert_rosetta_numbering_to_pdb_numbering(complex_pose.pdb_info(), rec_int)
-                
+
                 # count the number of overlapping residues between the receptor interface residues and the focus residues
                 overlap = set(rec_int_pdb).intersection(set(check_list))
                 len_overlap = len(overlap)
                 overlap_residues_str = ','.join(overlap)
                 print('residues touched: ' +','. join(rec_int_pdb) + '\n')
                 print('residues in check list: ' + ','.join(check_list) + '\n')
-                
+
                 if (focus or hotspot_mode) and len_overlap >= overlap_residues:
                     with open(log_name, 'a') as log:
                         log.write("%s passed third filter for focusing with %s overlapping residues: %s\n" % (complex_name, str(len_overlap), overlap_residues_str))
@@ -485,6 +499,6 @@ def main():
 
 if __name__ == "__main__":
 
-    init('-mute all')  # for pyrosetta
+    init('-mute all -detect_disulf true')  # for pyrosetta
 
     main()
