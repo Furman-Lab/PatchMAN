@@ -2,19 +2,14 @@ import argparse
 import glob
 import os
 import subprocess
+import time
 from pathlib import Path
 from collections import Counter
 
-import pyrosetta
-import pyrosetta.distributed.io as io
-import pyrosetta.distributed.tasks.rosetta_scripts as rosetta_scripts
 from dask.distributed import Client
 from pyrosetta import *
 from pyrosetta.distributed.cluster import PyRosettaCluster
-from pyrosetta.rosetta.protocols.jd2 import get_string_real_pairs_from_current_job
 
-
-# pip3 install distributed tools dask attrs billiard
 
 def keep_only_redundant_templates(input_files):
 
@@ -38,7 +33,7 @@ def create_tasks(list_of_inputs, dict_of_options, nstruct, min_rec_bb):
     for input in list_of_inputs:
         basename = os.path.splitext(os.path.basename(input))[0]
         for index in range(1, nstruct + 1):
-            print(input, basename, "dict", dict_of_options, f"{basename}_{index:04d}")
+            #print(input, basename, "dict", dict_of_options, f"{basename}_{index:04d}")
             yield {
             "options": "-ex1 -ex2aro -use_input_sc -overwrite",
             "extra_options": dict_of_options,
@@ -49,6 +44,7 @@ def create_tasks(list_of_inputs, dict_of_options, nstruct, min_rec_bb):
             }
 
 
+# Define the FPD protocol to run
 def protocol(pose, **kwargs):
     import pyrosetta
     import pyrosetta.distributed.io as io
@@ -85,9 +81,11 @@ def protocol(pose, **kwargs):
     # Save into the silent file
     io.to_silent(out_pose, f"{kwargs['PyRosettaCluster_output_path']}/decoys.silent")
 
+    # print(f'Ran protocol and saved decoy: {time.ctime()}')
     return out_pose  # otherwise score file is not written
 
 
+# Do the parallel runs
 def run_fpd_cluster(client, list_of_inputs, dict_of_options, min_rec_bb=False, output_path='.', nstruct=1):
     
     PyRosettaCluster(
@@ -98,53 +96,58 @@ def run_fpd_cluster(client, list_of_inputs, dict_of_options, min_rec_bb=False, o
         nstruct=1,  # here it is only one, as otherwise the decoy numbering cannot be tracked
         sha1=None,  # to prevent an error with git
         scorefile_name="scores.json",  # with dryrun, this wont be generated
-        dry_run=True,
+        dry_run=True, # to avoid writing json file of scores and each pdb separately
         decoy_dir_name='.',  # dont create  unnecessary directories
         logs_dir_name='.'  # dont create unnecessary directories
     ).distribute(protocols=[protocol])
 
     # Make a score file: open the silent file and extract lines starting with 'SCORE'
+    print('FPD run finished, collecting scores from silent file')
     with open(os.path.join(output_path, "decoys.silent"), "r") as infile:
         score_lines = [line for line in infile if line.startswith("SCORE")]
 
     # Write the extracted lines to a new file
+    print('Writng scores to file')
     with open(os.path.join(output_path, "scores.sc"), "w") as outfile:
         outfile.writelines(score_lines)
 
 
-def set_nstruct(n_templates, min_nstruct, max_nstruct=20000, args=None):
+# Decide on nstruct based on upper limit or user input
+def set_nstruct(n_templates, max_nstruct_per_decoy, max_nstruct_total=20000, args=None):
     if args and args.nstruct:
         nstruct = args.nstruct
     else:
-        if min_nstruct * n_templates < max_nstruct:
+        if max_nstruct_per_decoy * n_templates <= max_nstruct_total:
             nstruct = 10
-        elif n_templates > max_nstruct:
+        elif n_templates > max_nstruct_total:
             nstruct = 1
         else:
-            nstruct = max_nstruct // n_templates
+            nstruct = max_nstruct_total // n_templates # rounds down to closest integer
 
-    print(f"Refinement will generate {nstruct} decoys per input structure for {n_templates} inputs")
+    print(f"Refinement will generate {nstruct} decoys per input structure for {n_templates} inputs, total {nstruct * n_templates} decoys")
 
     return nstruct
 
 
 # Calculate the number of processors to use
 def set_procs(args, nstruct, input_files):
+    cpu_count = os.cpu_count() - 1
     if args.cpu:
-        procs = args.cpu
-    elif "SLURM_NPROCS" not in os.environ:
-        if nstruct * len(input_files) < os.cpu_count():
-            procs = nstruct * len(input_files)
-        else:
-            procs = os.cpu_count()
+        print('Using user-defined CPU count: ', args.cpu)
+        procs = min(args.cpu - 1, cpu_count)
+    elif "SLURM_NTASKS" not in os.environ:
+        print('Using all available CPUs, SLURM_NTASKS is not available: ', cpu_count)
+        procs = min(nstruct * len(input_files), cpu_count)
     else:
-        procs = int(os.environ["SLURM_NPROCS"])
+        print('Using SLURM_NTASKS: ', os.environ["SLURM_NTASKS"])
+        procs = int(os.environ["SLURM_NTASKS"]) - 1
 
     print(f"Running FlexPepDock refinement on {procs} threads")
 
     return procs
 
 
+# Clean up existing output files before running FlexPepDock
 def clean_before_run():
     for file in ["score.sc", "decoys.silent"]:
         Path(file).unlink(missing_ok=True)
@@ -191,6 +194,7 @@ def main():
     parser.add_argument("-b", "--benchmark", action="store_true", help="Enable benchmarking mode")
     parser.add_argument("-r", "--redundancy", action="store_true", help="Filter for template redundancy. Default: False")
     parser.add_argument("-c", "--cpu", type=int, help="Number of CPUs to use. Default: All available")
+    parser.add_argument("-o", "--outdir", type=str, help="Output directory. Default: Current directory", default=os.getcwd())
     args = parser.parse_args()
 
     # Collect input files
@@ -211,9 +215,13 @@ def main():
     # Clean up existing output files before running FlexPepDock
     clean_before_run()
 
+    # Open dask client and link to dashboard
+    client = Client(processes=False, n_workers=procs, threads_per_worker=1)
+    print(f"Dashboard URL: {client.dashboard_link}")
+
     # Run FlexPepDock
-    client = Client()
-    run_fpd_cluster(client, input_files, dict_of_init_opts, args.min_rec_bb, os.getcwd(), int(nstruct))
+    run_fpd_cluster(client, input_files, dict_of_init_opts, args.min_rec_bb, args.outdir, int(nstruct))
+
 
 if __name__ == "__main__":
     main()
