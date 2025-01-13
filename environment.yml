@@ -1,0 +1,24 @@
+name: patchman
+channels:
+  - https://conda.rosettacommons.org
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - dask
+  - distributed
+  - dask-jobqueue
+  - attrs
+  - billiard
+  - "bokeh>=3.1.0"
+  - pyrosetta
+  - git
+  - gitpython
+  - toolz
+  - traitlets
+  - decorator
+
+# Optional/Development dependencies
+# Uncomment the following lines to include Jupyter and development tools
+# - jupyter
+# - ipykernel
