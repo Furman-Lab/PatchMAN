@@ -17,7 +17,7 @@ The protocol consists of 4 consecutive steps: (1) Definition of surface patches 
 #### Downloading software and data
 1. Obtain the files in this repo: 
    `git clone --branch python https://github.cs.huji.ac.il/fora-lab/PatchMAN-forServer`  
-3. Register for [MASTER v1.6]((https://grigoryanlab.org/index.php?sec=download&soft=MASTER)), obtain download URL and add it to create_env.sh
+3. Register for [MASTER v1.6](https://grigoryanlab.org/index.php?sec=download&soft=MASTER), obtain download URL and add it to create_env.sh
 4. Run `bash download_data_and_software.sh`, that will take care of downloading all the required files and extracting the databases to the `databases/` directory. This usually takes 5-10mins.
 
 #### Installation with conda/mamba environment (recommended)
