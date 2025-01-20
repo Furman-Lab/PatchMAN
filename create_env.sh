@@ -2,7 +2,7 @@
 set -e
 
 # Put the URL of the MASTER archive here, after registration here
-MASTER_URL="https://grigoryanlab.org/master/master-v1.6.tar.gz"
+MASTER_URL=""
 PATCHMAN_ENV="$PWD/patchman/" # Can be changed to default installation path: $HOME/micromamba/envs/patchman
 MICROMAMBA_URL="https://micro.mamba.pm/api/micromamba/linux-64/latest" # adjust this for different OS
 MASTER_DIR="$PWD/master"  # Adjust if master is extracted elsewhere
