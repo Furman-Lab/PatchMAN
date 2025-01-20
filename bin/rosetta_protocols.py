@@ -1,5 +1,3 @@
-
-
 from pyrosetta import *
 from pyrosetta.rosetta import *
 
