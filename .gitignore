@@ -41,3 +41,5 @@ submit_1ssh.sh
 new*
 old*
 test*
+/bin/micromamba
+development/
