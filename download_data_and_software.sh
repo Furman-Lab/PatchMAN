@@ -7,7 +7,6 @@
 #         Created by Furman Lab at HUJI, 2025.            #
 ###########################################################
 
-
 DB_DIR="databases/"
 mkdir -p $DB_DIR
 
