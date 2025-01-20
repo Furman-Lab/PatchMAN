@@ -26,7 +26,6 @@ MASK_OVERLAP_RESIDUES = 3
 OVERALL_MATCHES = 100
 
 DB_PATH = os.environ['DB_PATH']
-print(DB_PATH)
 
 """Receives a list of matches for *1* motif, the receptor pdb file and the peptide sequence.
 Create initial complexes: extract peptides from proteins with motifs similar to the query, thread the pepseq with fixbb.
@@ -60,7 +59,7 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
         indices = [r + 1 for m_stretch in motif_stretches for r in m_stretch]  # the numbering in master output is from 0
 
         match_to_report = motif_pdb + ': ' + ','.join([str(i) for i in indices])
-        pdb_path = DB_PATH + motif_pdb.upper() + '.clean.pdb'
+        pdb_path = DB_PATH + '/' + motif_pdb.upper() + '.clean.pdb'
 
         if not path.isfile(pdb_path):
             print('Not found ' + pdb_path, flush=True)
