@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-import os
-import argparse
-import subprocess
-import shutil
-import re
-import datetime
 from bin.protocol_utils import *
 
 # Gather all the arguments needed for the protocol

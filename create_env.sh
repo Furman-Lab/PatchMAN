@@ -3,6 +3,12 @@ set -e
 
 # Put the URL of the MASTER archive here, after registration here
 MASTER_URL=""
+
+if [ -z "$MASTER_URL" ]; then
+    echo "ERROR: Please provide the URL of the MASTER archive. Register here: https://grigoryanlab.org/index.php?sec=get&soft=MASTER"
+    exit 1
+fi
+
 PATCHMAN_ENV="$PWD/patchman/" # Can be changed to default installation path: $HOME/micromamba/envs/patchman
 MICROMAMBA_URL="https://micro.mamba.pm/api/micromamba/linux-64/latest" # adjust this for different OS
 MASTER_DIR="$PWD/master"  # Adjust if master is extracted elsewhere
@@ -28,25 +34,25 @@ curl -f -o mslib.tar.gz "https://grigoryanlab.org/msl/msl-static-Linux-x86-64_1.
 # Step 1: Create a directory for extracting the master archive
 mkdir -p "$MASTER_DIR"
 
-# Step 2: Extract the master and mslib archives
+# Extract the master and mslib archives
 echo "Extracting master archive..."
 tar -xzf master.tar.gz -C "$MASTER_DIR" --strip-components=1
 echo "Extracting mslib archive..."
 tar -xzf mslib.tar.gz -C "$PWD/"
 
-# Step 3: Patch the MASTER source code
+# Patch the MASTER source code
 echo "Patching MASTER source code..."
 cp "$MASTER_DIR/src/Match.cpp" "$MASTER_DIR/src/Match_old.cpp" # create backup
 dos2unix "$MASTER_DIR/src/Match.cpp"
 patch -l "$MASTER_DIR/src/Match.cpp" bin/master.patch
 
-# Step 4: Compile MASTER
+# Compile MASTER
 echo "Compiling MASTER..."
 cd "$MASTER_DIR"
 make all
 cd ../
 
-# Step 5: Install the compiled executable into the bin directory of patchman_env
+# Install the compiled executable into the bin directory of patchman_env
 echo "Installing MASTER executable..."
 mkdir -p "$PATCHMAN_ENV_BIN"
 cp "$MASTER_DIR/bin/"* "$PATCHMAN_ENV_BIN/"

@@ -127,7 +127,7 @@ def run_fpd_cluster(list_of_inputs, init_opts, min_rec_bb=False, output_path='.'
 
     # Run tasks
     task_args = [(pose_path, min_rec_bb, i, output_path)
-                 for pose_path in list_of_inputs for i in range(1, nstruct + 1)]
+                 for pose_path in list_of_inputs for i in range(1, nstruct + 1)][:10]
 
     futures = client.map(lambda args: protocol(*args), task_args)
     client.gather(futures)
@@ -144,7 +144,8 @@ def run_fpd_cluster(list_of_inputs, init_opts, min_rec_bb=False, output_path='.'
                 for line in infile:
                     if line.startswith("SCORE"):
                         score_file.write(line)
-            os.remove(silent_file)  # Clean up individual worker silent files
+                    combined_file.write(line)
+            #os.remove(silent_file)  # Clean up individual worker silent files
 
     print(f"Combined silent file written to {combined_silent_file}")
     print(f"Scores written to {score_file_path}")
