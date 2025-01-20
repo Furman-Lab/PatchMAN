@@ -15,15 +15,16 @@ The protocol consists of 4 consecutive steps: (1) Definition of surface patches 
 ### Installation
 
 #### Downloading software and data
+1. Obtain the files in this repo: 'git clone --branch python https://github.cs.huji.ac.il/fora-lab/PatchMAN-forServer'
 1. Register for [MASTER v1.6](https://grigoryanlab.org/index.php?sec=get&soft=MASTER), obtain download URL and add it to create_env.sh
-2. Run `bash download_data_and_software.sh`, that will take care of downloading all the required files and extracting the database for MASTER search into the `databases/masterDB` and `databases/master_clean` directory. Downloading Rosetta, PyRosetta and the MASTER database can take significant amount of time, depending on your network.
+2. Run `bash download_data_and_software.sh`, that will take care of downloading all the required files and extracting the databases to the `databases/` directory. This usually takes 5-10mins.
 
 #### Installation with conda/mamba environment (recommended)
 To create a new environment, just simply run the following command:
 ```
 bash create_env.sh
 ```
-This will take 5-10 mins, and it needs to download and extract pyrosetta. By default, it install the environment in the current directory.   
+This will also take 5-10 mins, and it needs to download and extract pyrosetta. By default, it install the environment in the current directory.   
 If you want to install it in a different directory, modify or remove the `prefix` in the: `micromamba env create` line.
 
 ### Quick start
