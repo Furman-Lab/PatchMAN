@@ -9,17 +9,6 @@ master_list=($(ls *pds))
 echo "$SLURM_ARRAY_TASK_ID"
 master_job=${master_list["$SLURM_ARRAY_TASK_ID"]}
 
-# For benchmarking, filter out those pdbs that are in the list of similar PDBs
-if [[ $# -eq 2 ]]
-then
-	targetList=$2
-else
-	targetList="$PROTOCOL_ROOT/db_list_30nonred"
-fi
+master --query $master_job --bbRMSD --rmsdCut $1 --targetList $2 --topN 100000 --matchOut $master_job.matches
 
-command="$MASTER/master --query $master_job --targetList $targetList --bbRMSD --rmsdCut $1 --topN 100000 --matchOut $master_job.matches"
-
-echo $command
-
-$command
 

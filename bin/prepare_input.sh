@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=prepack_receptor
-#SBATCH --time=13:00:00
-#SBATCH --mem=1G
+#SBATCH --time=90:00:00
+#SBATCH --mem=1600m
 #SBATCH --get-user-env
 
-${PYTHON} ${PROTOCOL_ROOT}/bin/prepack_receptor.py $1
+python3 ${PROTOCOL_ROOT}/bin/prepack_receptor.py $1
