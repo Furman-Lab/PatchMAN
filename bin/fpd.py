@@ -6,13 +6,13 @@ import time
 from pathlib import Path
 from collections import Counter
 
+import pyrosetta
 from dask.distributed import Client
 from pyrosetta import *
 from pyrosetta.distributed.cluster import PyRosettaCluster
 
 
 def keep_only_redundant_templates(input_files):
-
     # Extract the middle part (2nd to 4th segments) from filenames
     segments = []
     for filename in input_files:
@@ -29,36 +29,24 @@ def keep_only_redundant_templates(input_files):
     return results
 
 
-def create_tasks(list_of_inputs, dict_of_options, nstruct, min_rec_bb):
-    for input in list_of_inputs:
-        basename = os.path.splitext(os.path.basename(input))[0]
-        for index in range(1, nstruct + 1):
-            #print(input, basename, "dict", dict_of_options, f"{basename}_{index:04d}")
-            yield {
-            "options": "-ex1 -ex2aro -use_input_sc -overwrite",
-            "extra_options": dict_of_options,
-            "set_logging_handler": "interactive",
-            "s": input,
-            "numbered_basename": f"{basename}_{index:04d}",
-            "min_rec_bb": min_rec_bb
-            }
-
-
-# Define the FPD protocol to run
-def protocol(pose, **kwargs):
+def protocol(pose_path, min_rec_bb, index):
     import pyrosetta
     import pyrosetta.distributed.io as io
     import pyrosetta.distributed.tasks.rosetta_scripts as rosetta_scripts
     from pyrosetta.rosetta.protocols.jd2 import get_string_real_pairs_from_current_job
 
-    pose = io.pose_from_file(kwargs["s"])
+    pose = io.pose_from_file(pose_path)
+    basename = os.path.splitext(os.path.basename(pose_path))[0]
+    numbered_basename = f"{basename}_{index:04d}"
+
+    print(f'Running FlexPepDock on {numbered_basename}')
 
     xml = f"""
         <ROSETTASCRIPTS>
             <SCOREFXNS>
             </SCOREFXNS>
             <MOVERS>
-                <FlexPepDock name="fpd" pep_refine="1" extra_scoring="1" lowres_preoptimize="1" min_receptor_bb='{str(int(kwargs["min_rec_bb"]))}'/>
+                <FlexPepDock name="fpd" pep_refine="1" extra_scoring="1" lowres_preoptimize="1" min_receptor_bb='{int(min_rec_bb)}'/>
             </MOVERS>
 
             <PROTOCOLS>
@@ -70,7 +58,7 @@ def protocol(pose, **kwargs):
     # Name the decoys according to the usual Rosetta naming scheme. Need to convert to regular Pose
     packed_pose = rosetta_scripts.SingleoutputRosettaScriptsTask(xml)(pose.pose.clone())
     out_pose = pyrosetta.distributed.packed_pose.to_pose(packed_pose)
-    out_pose.pdb_info().name(kwargs['numbered_basename'])
+    out_pose.pdb_info().name(numbered_basename)
 
     # Add extra scores to Pose object
     extra_scores = dict(get_string_real_pairs_from_current_job())
@@ -79,27 +67,46 @@ def protocol(pose, **kwargs):
             out_pose.scores[k] = v
 
     # Save into the silent file
-    io.to_silent(out_pose, f"{kwargs['PyRosettaCluster_output_path']}/decoys.silent")
+    io.to_silent(out_pose, "decoys.silent")
+    print(f'Finished running FlexPepDock on {numbered_basename}')
+    sys.stdout.flush()
+    sys.stderr.flush()
 
-    # print(f'Ran protocol and saved decoy: {time.ctime()}')
-    return out_pose  # otherwise score file is not written
 
+def run_fpd_cluster2(list_of_inputs, init_opts, min_rec_bb=False, output_path='.', nstruct=1):
+    from dask.distributed import Client, LocalCluster
+    import socket
+    pyrosetta.distributed.init(init_opts)
 
-# Do the parallel runs
-def run_fpd_cluster(client, list_of_inputs, dict_of_options, min_rec_bb=False, output_path='.', nstruct=1):
-    
-    PyRosettaCluster(
-        tasks=create_tasks(list_of_inputs, dict_of_options, nstruct, int(min_rec_bb)),
-        client=client,
-        scratch_dir=output_path,
-        output_path=output_path,
-        nstruct=1,  # here it is only one, as otherwise the decoy numbering cannot be tracked
-        sha1=None,  # to prevent an error with git
-        scorefile_name="scores.json",  # with dryrun, this wont be generated
-        dry_run=True, # to avoid writing json file of scores and each pdb separately
-        decoy_dir_name='.',  # dont create  unnecessary directories
-        logs_dir_name='.'  # dont create unnecessary directories
-    ).distribute(protocols=[protocol])
+    # Set up a LocalCluster using resources provided by SLURM
+    # If the cluster starts to have 'Too many files open', increase the number of tasks per worker
+    task_per_worker = 2
+    cores_per_worker = int(os.getenv("SLURM_CPUS_PER_TASK", 1)) * task_per_worker
+    total_tasks = int(int(os.getenv("SLURM_NTASKS", 100))/task_per_worker)  
+    memory_limit = f'{str(int(os.getenv("SLURM_MEM_PER_CPU", "1600")) * task_per_worker)}MB' 
+    host_ip = socket.gethostbyname(socket.gethostname())
+
+    print(f"Starting LocalCluster with {total_tasks} workers, {cores_per_worker} cores per worker, {memory_limit} memory per worker on {host_ip}")
+    sys.stdout.flush()
+    cluster = LocalCluster(n_workers=total_tasks,
+                           threads_per_worker=cores_per_worker,
+                           memory_limit=memory_limit,
+                           local_directory='/tmp',
+                           processes=True,
+                           dashboard_address=f'{host_ip}:8787',
+                           host=host_ip
+                           )
+    client = Client(cluster)
+    print(f"Dashboard URL: {client.dashboard_link}")
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    # Run jobs
+    futures = [client.submit(protocol, pose_path, min_rec_bb, i)
+           for pose_path in list_of_inputs for i in range(1, nstruct + 1)]
+
+    print(f'FUTURES: {len(futures)}')
+    results = client.gather(futures)
 
     # Make a score file: open the silent file and extract lines starting with 'SCORE'
     print('FPD run finished, collecting scores from silent file')
@@ -107,9 +114,51 @@ def run_fpd_cluster(client, list_of_inputs, dict_of_options, min_rec_bb=False, o
         score_lines = [line for line in infile if line.startswith("SCORE")]
 
     # Write the extracted lines to a new file
-    print('Writng scores to file')
-    with open(os.path.join(output_path, "scores.sc"), "w") as outfile:
+    print('Writing scores to file')
+    with open(os.path.join(output_path, "score.sc"), "w") as outfile:
         outfile.writelines(score_lines)
+
+
+def run_fpd_cluster(list_of_inputs, init_opts, min_rec_bb=False, output_path='.', nstruct=1):
+    from joblib import Parallel, delayed
+    import os
+    import socket
+    import pyrosetta.distributed.io as io
+    from pyrosetta import init
+
+    # Initialize PyRosetta
+    init(init_opts)
+
+    # Split workload across workers
+    total_tasks = len(list_of_inputs) * nstruct
+    n_jobs = int(os.getenv("SLURM_NTASKS", 1))
+    print(f"Starting parallel execution with {total_tasks} tasks...")
+    sys.stdout.flush()
+
+    # Generate task list
+    tasks = [
+        delayed(protocol)(pose_path, min_rec_bb, i)
+        for pose_path in list_of_inputs
+        for i in range(1, nstruct + 1)
+    ]
+
+    # Execute tasks in parallel
+    results = Parallel(n_jobs=n_jobs, backend="loky")(tasks)
+
+    # Process results
+    print(f"Collected {len(results)} results. Writing scores...")
+    sys.stdout.flush()
+
+    # Extract scores from the silent file
+    score_file_path = os.path.join(output_path, "score.sc")
+    with open(os.path.join(output_path, "decoys.silent"), "r") as infile:
+        score_lines = [line for line in infile if line.startswith("SCORE")]
+
+    with open(score_file_path, "w") as outfile:
+        outfile.writelines(score_lines)
+
+    print(f"Scores written to {score_file_path}")
+
 
 
 # Decide on nstruct based on upper limit or user input
@@ -170,19 +219,15 @@ def filter(input_files, redundancy, benchmark):
 
 
 # create a dictionary of options to init Rosetta. These need to be set from the cmdline
-def create_init_opts_dict(procs, args):
-    dict_of_init_opts = {
-        f"-multithreading:total_threads": str(procs),
-        f"-overwrite": "",
-    }
-
+def create_init_opts(args):
+    init_opts = "-ex1 -ex2aro -use_input_sc -overwrite"
     # Add arguments to the dict
     if args.unboundrot:
-        dict_of_init_opts["-unboundrot"] = args.unboundrot
+        init_opts += f" -unboundrot {args.unboundrot}"
     if args.native:
-        dict_of_init_opts["-native"] = args.native
+        init_opts += f" -native {args.native}"
 
-    return dict_of_init_opts
+    return init_opts
 
 
 def main():
@@ -210,20 +255,22 @@ def main():
     procs = set_procs(args, nstruct, input_files)
 
     # For init Rosetta
-    dict_of_init_opts = create_init_opts_dict(procs, args)
+    init_opts = create_init_opts(args)
 
     # Clean up existing output files before running FlexPepDock
     clean_before_run()
 
     # Open dask client and link to dashboard
-    client = Client(processes=False, n_workers=procs, threads_per_worker=1)
-    print(f"Dashboard URL: {client.dashboard_link}")
+    procs = int(procs / 2) # for debugging
+    from dask.config import set
+    set({'distributed.worker.memory.target': 0.8, 'distributed.worker.memory.spill': 0.75, 'distributed.worker.memory.pause':0.85})
 
     # Run FlexPepDock
-    run_fpd_cluster(client, input_files, dict_of_init_opts, args.min_rec_bb, args.outdir, int(nstruct))
+    run_fpd_cluster2(input_files, init_opts, args.min_rec_bb, args.outdir, int(nstruct))
 
 
 if __name__ == "__main__":
+    from dask.distributed import Client
     main()
 
 
