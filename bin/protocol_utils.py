@@ -9,17 +9,6 @@ import configparser
 import socket
 import glob
 
-def create_singularity_command(singularity_root, protocol_root, container_name='', extra_args=[]):
-	'''
-	Create a command to execute a Singularity container
-	:param singularity_root: Path to the Singularity root directory
-	:param container_name: Name of the Singularity container
-	:return: List containing the command to execute the Singularity container
-	'''
-	cmd = [singularity_root, 'exec', '--bind', f'/{Path(protocol_root).parts[1]}/', f'{protocol_root}/containers/{container_name}']
-	cmd.extend(extra_args)
-	return cmd
-
 def load_config(config_file_path="config.ini"):
 	'''
 	Load the configuration file and set up environment variables
@@ -32,42 +21,44 @@ def load_config(config_file_path="config.ini"):
 	config_dict = dict()
 	
 	# Determine the hostname section to use
-	hostname = socket.gethostname() #.split('-')[0]
+	hostname = socket.gethostname()
 	specific_config = ''
 	for section in config.sections():
 		if section.startswith('HOSTNAME:') and section[len('HOSTNAME:'):] in hostname:
 			specific_config = section
 			break
+
 	# Handle specific configurations based on hostname
-	config_dict['ADD_SBATCH'] = config.get(specific_config, 'ADD_SBATCH', fallback=[])
-	
+	config_dict['ADD_SBATCH'] = config.get(specific_config, 'ADD_SBATCH', fallback='')
+	os.environ['FPD_NUM_JOBS'] = str(config.get(specific_config, 'FPD_NUM_JOBS', fallback=50))
+	os.environ['FPD_TASKS_PER_JOB'] = str(config.get(specific_config, 'FPD_TASKS_PER_JOB', fallback=3))
+	os.environ['FPD_MEM_PER_TASK'] = str(config.get(specific_config, 'FPD_MEM_PER_TASK', fallback='2G'))
+	os.environ['FPD_TIME'] = str(config.get(specific_config, 'FPD_TIME', fallback='120:00:00'))
+
 	# Initialize PROTOCOL_ROOT from the configuration or use the script's location as a default
 	protocol_root = Path(config.get('DEFAULT', 'PROTOCOL_ROOT', fallback=str(Path(__file__).resolve().parent.parent)))
 	
-	# Dynamically derive SINGULARITY_ROOT and DB_PATH from PROTOCOL_ROOT if not specified
-	singularity_root = config.get('DEFAULT', 'SINGULARITY_ROOT', fallback=protocol_root / 'containers')
+	# Dynamically derive DB_PATH from PROTOCOL_ROOT if not specified
 	db_path = config.get('DEFAULT', 'DB_PATH', fallback=protocol_root / 'databases/master_clean/')
-	
-	# Create Singularity, Python and MASTER commands
-	config_dict['SINGULARITY'] = create_singularity_command(singularity_root, protocol_root)
-	config_dict['PYTHON'] = create_singularity_command(singularity_root, protocol_root, 'python.sif', ['python3'])
-	os.environ['MASTER'] = ' '.join(create_singularity_command(singularity_root, protocol_root, 'master.sif', ['/master/bin/']))
 	
 	# Setting up environment variables
 	os.environ['PROTOCOL_ROOT'] = str(protocol_root)
-	os.environ['SINGULARITY_ROOT'] = str(singularity_root)
 	os.environ['DB_PATH'] = str(db_path)
-	os.environ['PYTHON'] = ' '.join(config_dict['PYTHON'])
+	os.environ['PYTHON'] = 'python3'
 	os.environ['BIN_DIR'] = f'{protocol_root}/bin'
 	
 	# Example: Print environment variables to verify
 	print("Environment Variables Set:")
 	print(f"PROTOCOL_ROOT={os.environ['PROTOCOL_ROOT']}")
-	print(f"SINGULARITY_ROOT={os.environ['SINGULARITY_ROOT']}")
 	print(f"DB_PATH={os.environ['DB_PATH']}")
 	print(f"ADD_SBATCH={config_dict['ADD_SBATCH']}")
-	print(f"SINGULARITY={config_dict['SINGULARITY']}")
-	
+
+	# check if sbatch command is available
+	try:
+		subprocess.run(["sbatch", "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+	except FileNotFoundError:
+		raise RuntimeError("sbatch command not found. Please make sure it is available in the PATH")
+
 	return config_dict
 
 
@@ -78,7 +69,7 @@ def validate_pdb(filepath):
 	:return: True if the file is valid, otherwise raise an exception
 	'''
 	if not os.path.exists(filepath) or not os.path.isfile(filepath):
-		die(f"{filepath} is not a readable file")
+		raise RuntimeError(f"{filepath} is not a readable file")
 	
 	with open(filepath, 'r') as f:
 		count_atom_lines = sum(1 for line in f if line.startswith("ATOM"))
@@ -86,10 +77,10 @@ def validate_pdb(filepath):
 	if count_atom_lines > 0:
 		return True
 	else:
-		die(f"{filepath} is not a valid PDB file")
+		raise RuntimeError(f"{filepath} is not a valid PDB file")
 
 
-def zero_jobid(job_id):
+def reset_jobid(job_id):
 	'''
 	Return the job ID if it is not None, otherwise return -1.
 	This is for the case when only certain steps are run.
@@ -97,36 +88,30 @@ def zero_jobid(job_id):
 	:param job_id: Job ID
 	:return: Job ID if not None, otherwise -1
 	'''
+
 	return job_id if job_id else -1
 
 
-def print_jobid(job_type, job_id):
-	'''
-	Print the job ID if verbose mode is enabled
-	:param job_type: Type of the job
-	:param job_id: Job ID
-	:return: None
-	'''
-	if verbose:
-		print(f"DEBUG| {job_type} JOBID: {job_id}")
-
-
 def submit_job(script, args=[], dependency=None, slurm_opts=None):
-	"""Submit a job to Slurm with optional dependencies.
+	'''
+	Submit a job to Slurm with optional dependencies.
 	:param script: Path to the script to run
 	:param args: List of arguments to pass to the script
 	:param dependency: Job ID to depend on
 	:param slurm_opts: Dictionary of additional Slurm options
-	"""
+	'''
+
 	cmd = ['sbatch']
 	if dependency:
 		cmd.append(f'--dependency={dependency}')
 	if slurm_opts:
 		cmd.extend(slurm_opts)
 	cmd.append(script)
-	cmd.extend(args)
+	cmd.extend(args) if len(args) > 0 else None
 	result = subprocess.run(" ".join([str(item) for item in cmd]), capture_output=True, text=True, check=True, shell=True)
+
 	return result.stdout.strip().split()[-1]
+
 
 def create_motif_list(rec_name, pdb_list_file):
 	motif_files = glob.glob(rf"???_{rec_name}.pdb")
@@ -134,6 +119,7 @@ def create_motif_list(rec_name, pdb_list_file):
 		f.writelines("\n".join(motif_files))
 		# add a new line
 		f.write("\n")
+
 
 # Function to run createPDS directly
 def run_createPDS(pdb_list_file, output=None):
@@ -144,7 +130,7 @@ def run_createPDS(pdb_list_file, output=None):
 	:param output: Path to the output file or None to print to stdout
 	return: None
 	'''
-	cmd = [f"{os.environ['MASTER']}/createPDS", "--type", "query", "--pdbList", pdb_list_file]
+	cmd = [f"createPDS", "--type", "query", "--pdbList", pdb_list_file]
 	if output:  # If you want to redirect output to a file or /dev/null
 		with open(output, 'w') as f:
 			subprocess.run(' '.join(cmd), stdout=f, check=True, stderr=f, shell=True)
@@ -152,7 +138,7 @@ def run_createPDS(pdb_list_file, output=None):
 		subprocess.run(' '.join(cmd), check=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, shell=True)
 
 
-def get_args():
+def parse_args():
 	'''
 	Parse command line arguments and return the parsed arguments
 	return: Namespace object containing the parsed arguments
@@ -225,7 +211,15 @@ def get_args():
 		args.native_pdb = args.native_pdb.resolve()
 	if args.mask_pdb:
 		args.mask_pdb = args.mask_pdb.resolve()
-	
+
+	# Additional arguments for FlexPepDock - store them in args for simplicity
+	args.fpd_args = []
+	if args.min_rec_bb:
+		args.fpd_args.append(f"-m")
+	if args.nstruct:
+		args.fpd_args.append(f"-t {args.nstruct}")
+	if args.native_pdb:
+		args.fpd_args.append(f"-a {args.native_pdb}")
 	return args
 
 
@@ -345,9 +339,8 @@ def prepare_benchmark_mode(args, receptor_base):
 					output_file.write(db_line)
 		
 		# Adjust master_args and fpd_args
-		args.master_args = f"custom_db_list_30nonred"
-		args.fpd_args = f"{fpd_args} -b"
+		args.master_args = 'db_list_30nonred'
+		args.fpd_args.append(f"{fpd_args} -b")
 	else:
-		args.master_args = "db_list_30nonred"
-		args.fpd_args = []
+		args.master_args = f'{os.environ["PROTOCOL_ROOT"]}/db_list_30nonred'
 	return args

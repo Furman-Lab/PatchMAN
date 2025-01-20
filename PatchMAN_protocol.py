@@ -8,7 +8,7 @@ import datetime
 from bin.protocol_utils import *
 
 # Gather all the arguments needed for the protocol
-args = get_args()
+args = parse_args()
 config = load_config('config.ini')
 os.chdir(args.work_dir)
 
@@ -18,6 +18,7 @@ args.focus_mask_args = prepare_mask_and_focus(args)
 
 # Prepare receptor and derived filenames
 receptor, receptor_base, clean_rec, ppkrec = prepare_and_set_filenames(args.receptor)
+args.fpd_args.append(f"-u {clean_rec}")
 
 # Prepare for benchmark mode if provided
 args = prepare_benchmark_mode(args, receptor_base)
@@ -27,7 +28,7 @@ pdb_list_file = "motif_list"
 if 1 in args.steps_range:
     # Call split_to_motifs, with provided arguments
     # Execute Python script directly, not a Slurm job
-    subprocess.run([*config['PYTHON'], f"{os.environ['BIN_DIR']}/split_to_motifs.py", "-i", receptor,
+    subprocess.run(['python3', f"{os.environ['BIN_DIR']}/split_to_motifs.py", "-i", receptor,
                     *args.focus_mask_args.split()], check=True)
 
     # Listing motif files and creating motif_list
@@ -45,9 +46,10 @@ print(f"Number of searches: {n_searches}")
 if 2 in args.steps_range:
     prepack_receptor_jid = submit_job(
         f"{os.environ['BIN_DIR']}/prepare_input.sh",
-        args=[clean_rec],
-        slurm_opts=["--job-name=prepack_receptor", "--time=90:00:00", "--mem=1600m"]
+        args=[clean_rec]
     )
+else:
+    prepack_receptor_jid = -1
 
 # Step 3: Run MASTER
 if 3 in args.steps_range:
@@ -57,6 +59,8 @@ if 3 in args.steps_range:
         dependency=f'afterok:{prepack_receptor_jid}',
         slurm_opts={f"--array=0-{n_searches}%50"}
     )
+else:
+    run_master_jid = -1
 
 # Step 4: Extract templates
 if 4 in args.steps_range:
@@ -66,22 +70,19 @@ if 4 in args.steps_range:
         dependency=f'afterany:{run_master_jid}',
         slurm_opts={f"--array=0-{n_searches}%50"}
     )
+else:
+    extract_templates_jid = -1
 
 # Step 5: FlexPepDock (FPD)
 if 5 in args.steps_range:
-    # TODO: move these to preprocess
-    args.fpd_args.append(["-u", clean_rec, "-m", args.min_rec_bb])
-    if args.nstruct:
-        args.fpd_args += ["-t", args.nstruct]
-    if args.native_pdb:
-        args.fpd_args += ["-a", args.native_pdb]
-
     fpd_jid = submit_job(
         script=f"{os.environ['BIN_DIR']}/fpd.sh",
         args=args.fpd_args,
         dependency=f'afterany:{extract_templates_jid}',
-        slurm_opts=["--job-name=fpd", f"--chdir={os.getcwd()}", config['ADD_SBATCH']]
+        slurm_opts=[f"--chdir={os.getcwd()}", config['ADD_SBATCH']]
     )
+else:
+    fpd_jid = -1
 
 # Step 6: Clustering & Finalizing
 if 6 in args.steps_range:
@@ -91,17 +92,13 @@ if 6 in args.steps_range:
         dependency=f'aftercorr:{fpd_jid}',
         slurm_opts={"--job-name=clustering", "--nice=8000", f"--chdir={os.getcwd()}"}
     )
+else:
+    clustering_jid = -1
 
-    finalize_jid = submit_job(
-        script=f"{os.environ['BIN_DIR']}/finalize.sh",
-        dependency=f"aftercorr:{clustering_jid}",
-        slurm_opts={"--job-name=finalize", "--nice=8000", f"--chdir={os.getcwd()}", "--mem-per-cpu=2000"}
-    )
 
 # Print job IDs for debugging or tracking
 print("Job IDs:", {"Prepack": prepack_receptor_jid,
                    "Run MASTER": run_master_jid,
                    "Extract Templates": extract_templates_jid,
                    "FPD": fpd_jid,
-                   "Clustering": clustering_jid,
-                   "Finalizing": finalize_jid})
+                   "Clustering & Finalizing": clustering_jid})

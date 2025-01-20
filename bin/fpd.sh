@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH	--mem-per-cpu=2gb
 #SBATCH --cpus-per-task=1
+#SBATCH --ntasks=1
 #SBATCH --requeue
 #SBATCH --killable
 #SBATCH --nice=8000
