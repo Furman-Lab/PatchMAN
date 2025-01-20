@@ -17,6 +17,8 @@ dependencies:
   - toolz
   - traitlets
   - decorator
+  - scipy
+  - scikit-learn
 
 # Optional/Development dependencies
 # Uncomment the following lines to include Jupyter and development tools
