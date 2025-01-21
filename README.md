@@ -42,7 +42,7 @@ The peptide can contain post-translational modifications, denoted by Rosetta sta
 
 ```ls <env_path>/lib/python3.11/site-packages/pyrosetta/database/chemical/residue_type_sets/fa_standard/patches```
 
-:exclamation: Note that the protocol script is set up to use Slurm job scheduler. Using an other type of scheduler needs editing of the `config.ini` file and the `.sh`  and fpd.py files in the `bin/` directory. Unfortunately, we cannot help with that.
+:exclamation: Note that the protocol script is set up to use the Slurm job scheduler. Using another type of scheduler needs editing of the `config.ini` file and the `.sh`  and fpd.py files in the `bin/` directory.
 
 #### Test run
 A test run of PatchMAN can be performed on the 1ssh.pdb in the `test/` directory. Turning off receptor backbone minimization for testing purposes decreases runtime:
