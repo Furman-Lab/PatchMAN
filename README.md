@@ -79,20 +79,20 @@ Focus/mask/hotspot:
 ---
 ### Citing PatchMAN
 
-**PatchMAN docking: Modeling peptide-protein interactions in the context of the receptor surface**  
-Alisa Khramushin, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman  
-*bioRxiv 2021.09.02.458699; doi:https://doi.org/10.1101/2021.09.02.458699*  
+**Matching protein surface structural patches for high-resolution blind peptide docking**  
+Khramushin A., Tsaban T., Varga J., Avraham O., Schueler-Furman O. (2022) 
+*PNAS, 119:e2121153119. doi:10.1073/pnas.2121153119*  
 
 Please also cite the following papers:
 
 **Rapid Search for Tertiary Fragments Reveals Protein Sequence-Structure Relationships**  
-Zhou J., Grigoryan G.  
-*Protein Science, 24(4): 508-524, 2015.*  
+Zhou J., Grigoryan G. (2015) 
+*Protein Science, 24:508-524*  
 
 **Sub-angstrom modeling of complexes between flexible peptides and globular proteins**  
-Raveh B, London N, Schueler-Furman O. (2010).  
-*Proteins 78:2029-40.*  
+Raveh B., London N., Schueler-Furman O. (2010).  
+*Proteins, 78:2029-40*  
 
 **PyRosetta: a script-based interface for implementing molecular modeling algorithms using Rosetta**  
-Chaudhury S, Lyskov S, Gray JJ.  
-*Bioinformatics. 2010;26(5):689-691. doi:10.1093/bioinformatics/btq007*  
+Chaudhury S., Lyskov S., Gray JJ. (2010)  
+*Bioinformatics, 26:689-691. doi:10.1093/bioinformatics/btq007*  
