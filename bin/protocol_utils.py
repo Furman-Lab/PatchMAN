@@ -169,7 +169,7 @@ def parse_args():
 	parser.add_argument("-t", "--nstruct", type=int, default=1,
 	                    help="Number of structures to generate (Default: 1)")
 	parser.add_argument("-u", "--cluster_radius", type=str, default="2",
-	                    help="Cluster radius for clustering with Rosetta (Default: None)")
+	                    help="Cluster radius for clustering with Rosetta. This will be normalized by the length of the peptide. (Default: None)")
 
 
 	parser.add_argument("-p", "--steps", type=str,
