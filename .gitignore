@@ -43,3 +43,4 @@ old*
 test*
 /bin/micromamba
 development/
+bin/.ipynb_checkpoints/
