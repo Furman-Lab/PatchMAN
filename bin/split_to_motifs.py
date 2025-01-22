@@ -228,23 +228,17 @@ def define_motifs(pose, pdb_name, check_list=None, focus=False, hotspot_mode=Fal
 		central_res_motif=[], # central residues of the motifs
 	)
 
-	if check_list:
-		if focus:
-			print('Focus residues:', check_list)
-		elif not focus:
-			print('Mask residues:', check_list)
-		elif hotspot_mode:
-			print('Hotspot mode:', hotspot_mode)
-		else:
-			print('ERROR: Wrong combination of arguments: focus, hotspot_mode, check_list')
-
 	if not focus and not hotspot_mode and check_list is None:
+		print('Normal mode')
 		normal_mode(helper_data, debug=debug)
 	elif focus and check_list and not hotspot_mode:
+		print('Focus residues:', check_list)
 		focus_run(check_list, helper_data, debug=debug)
 	elif hotspot_mode and check_list:
+		print('Hotspot mode:', check_list)
 		focus_run(check_list, helper_data, hotspot=True, debug=debug)
 	elif not focus and check_list and not hotspot_mode:
+		print('Mask residues:', check_list)
 		mask_run(check_list, helper_data, debug=debug)
 	else:
 		print('ERROR: Wrong combination of arguments: focus, hotspot_mode, check_list')
