@@ -189,38 +189,6 @@ def mask_run(check_list, namespace, debug=False):
 					print('mask residue list:', set(check_list))
 
 
-# def hotspot_run(check_list, namespace, debug=False):
-# 	"""
-# 	Hotspot mode of the script, when a short list of interacting residues are provided
-# 	:param debug: print info
-#
-# 	:return: list of extracted motifs
-# 	"""
-# 	print('Hotspot mode')
-#
-# 	for i, res in enumerate(namespace.selected_res, 1):
-# 		if res:
-# 			# convert i to pdb numbering and check if part of check_list. Always use as a center of patch
-# 			pdb_num = str(namespace.pdbinf.chain(int(i))) + str(namespace.pdbinf.number(int(i)))
-# 			if (i in namespace.motifs_created or i <= 2):# and pdb_num not in check_list:
-# 				continue
-#
-# 			# create motif around the center residue
-# 			motif, _ = create_motif_around_center(i, namespace, debug=debug)
-# 			motif_with_chains = create_motif_with_chains(namespace.pdbinf, motif)
-#
-# 			common_residues = set(motif_with_chains).intersection(set(check_list))
-#
-# 			if len(common_residues) > 0:
-# 				finalize_motif(motif, motif_with_chains, namespace, i)
-# 			else:
-# 				if debug:
-# 					print('WARNING: Motif does not contain any residues from the hotspot list, skipping')
-# 					print('motif residues:', set(motif_with_chains))
-# 					print('focus residue list:', set(check_list))
-# 				continue
-
-
 def define_motifs(pose, pdb_name, check_list=None, focus=False, hotspot_mode=False, debug=False):
 	"""
 	Function to extract motifs from the receptor. Motifs are defined as patches of residues that are close to each other.
@@ -260,9 +228,15 @@ def define_motifs(pose, pdb_name, check_list=None, focus=False, hotspot_mode=Fal
 		central_res_motif=[], # central residues of the motifs
 	)
 
-	print('Focus residues:', check_list)
-	print('Focus mode:', focus)
-	print('Hotspot mode:', hotspot_mode)
+	if check_list:
+		if focus:
+			print('Focus residues:', check_list)
+		elif not focus:
+			print('Mask residues:', check_list)
+		elif hotspot_mode:
+			print('Hotspot mode:', hotspot_mode)
+		else:
+			print('ERROR: Wrong combination of arguments: focus, hotspot_mode, check_list')
 
 	if not focus and not hotspot_mode and check_list is None:
 		normal_mode(helper_data, debug=debug)
@@ -270,7 +244,6 @@ def define_motifs(pose, pdb_name, check_list=None, focus=False, hotspot_mode=Fal
 		focus_run(check_list, helper_data, debug=debug)
 	elif hotspot_mode and check_list:
 		focus_run(check_list, helper_data, hotspot=True, debug=debug)
-		# hotspot_run(check_list, helper_data, debug=debug)
 	elif not focus and check_list and not hotspot_mode:
 		mask_run(check_list, helper_data, debug=debug)
 	else:
@@ -365,25 +338,6 @@ def split_to_motifs():
 	# split the surface into motifs
 	motifs = define_motifs(pose, prot_name, check_list=check_list, focus=args.focus, hotspot_mode=args.hotspot_mode, debug=args.verbose)
 	print("The surface was split into " + str(len(set(motifs))) + " patches")
-
-
-# def main():
-#     inpdb = sys.argv[1] # CLEAN_PDB
-#     toolbox.cleaning.cleanATOM(inpdb)
-#     prot_name = os.path.splitext(os.path.basename(inpdb))[0]
-#     pose = pose_from_pdb(prot_name+'.clean.pdb')
-#
-#     if len(sys.argv) > 2:
-#         print('reading masking residues from: ' + sys.argv[2])
-#         maskpdb = sys.argv[2] # mask PDB file, containing residues NOT to use
-#         toolbox.cleaning.cleanATOM(maskpdb)
-#         mask_prot_name = os.path.splitext(os.path.basename(maskpdb))[0]
-#         mask_pose = pose_from_pdb(mask_prot_name+'.clean.pdb')
-#         motifs = define_motifs(pose, prot_name, mask_pose)
-#     else:
-#         motifs = define_motifs(pose, prot_name)
-#
-#     print("The surface was split into " + str(len(motifs)) + " patches")
 
 
 if __name__ == "__main__":
