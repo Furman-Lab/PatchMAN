@@ -35,7 +35,7 @@ def load_config(config_file_path="config.ini"):
 	config_dict['ADD_SBATCH'] = config.get(specific_config, 'ADD_SBATCH', fallback='')
 	os.environ['FPD_NUM_JOBS'] = str(config.get(specific_config, 'FPD_NUM_JOBS', fallback=50))
 	os.environ['FPD_TASKS_PER_JOB'] = str(config.get(specific_config, 'FPD_TASKS_PER_JOB', fallback=3))
-	os.environ['FPD_MEM_PER_TASK'] = str(config.get(specific_config, 'FPD_MEM_PER_TASK', fallback='2G'))
+	os.environ['FPD_MEM_PER_TASK'] = str(config.get(specific_config, 'FPD_MEM_PER_TASK', fallback='2GB'))
 	os.environ['FPD_TIME'] = str(config.get(specific_config, 'FPD_TIME', fallback='120:00:00'))
 
 	# Dynamically derive DB_PATH from PROTOCOL_ROOT if not specified
