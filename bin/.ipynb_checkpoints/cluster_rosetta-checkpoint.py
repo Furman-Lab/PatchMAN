@@ -37,16 +37,12 @@ def filter_and_select_top_structures(scores, tags_to_remove=[], score_type='rewe
         raise ValueError('Invalid value for selecting the top X for clustering: needs to be > 0')
     else:
         num_str = topX
-    num_str = max(num_str, 50) # but always cluster at least 50
-    print(f'Selecting {num_str} structures for clustering')
-    # if num_str > num_lines, it will just return all in pandas
 
-    # Select the top X based on sorted scores
+    # Select the top X percent based on sorted scores
     top_percent_df = df_filtered.nsmallest(num_str, score_type)
     top_percent_df.to_csv('top1percent', sep='\t')
 
     return top_percent_df
-
 
 def read_pose(silent_struct, tag, sort_by_score='reweighted_sc'):
     pose = Pose()
@@ -102,11 +98,13 @@ def extract_and_sort_score_file(score_file='score.sc', output_file="sorted.sc"):
     # List of scores to extract
     scores_types = ['reweighted_sc', 'I_sc', 'rmsBB', 'rmsBB_if', 'description']
 
-    scores = pd.read_csv(score_file, sep='\s+', header=0)
-    scores = scores[~scores['SCORE:'].str.contains('SEQUENCE:', case=False, na=False)]
-
-    # drop those rows where description=='description'
-    scores = scores[scores['description'] != 'description']
+    # If output_file exists, return the corresponding DataFrame
+    if os.path.isfile(output_file):
+        scores = pd.read_csv(output_file, sep='\s+', names=scores_types)
+    else:
+        # Now read the rest of the file into a DataFrame
+        scores = pd.read_csv(score_file, sep='\s+', header=0, skiprows=1)
+        scores = scores[~scores['SCORE:'].str.contains('SEQUENCE:', case=False, na=False)]
 
     scores = scores[scores_types]
     scores = scores.apply(pd.to_numeric, errors='ignore')
@@ -231,17 +229,6 @@ def process_clusters(clusters):
     top10_df.apply(lambda row: copy_final_pdbs(row["Cluster_no"], row["Member_ID"], row["Rank"]), axis=1)
 
 
-def clean_dir(dirs=[]):
-    """
-    Clean the directory from every file. Do not throw error if the file does not exist.
-    """
-    for dir in dirs:
-        for file in os.listdir(dir):
-            try:
-                os.remove(file)
-            except FileNotFoundError:
-                pass
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Run clustering and finalization steps.")
     parser.add_argument("-w", "--work_dir", help="Directory containing decoys and other files.", default=".")
@@ -249,7 +236,7 @@ def parse_args():
     parser.add_argument("-d", "--silent_file", help="Path to the score", default="decoys.silent")
     parser.add_argument("-t", "--tags_to_remove", nargs="+", default=[], help="Tags to exclude from clustering.")
     parser.add_argument("-r", "--radius", type=float, default=2.0, help="RMSD threshold for clustering.")
-    parser.add_argument("-x", "--topX", type=int, default=0.01, help="Ratio of decoys to take for clustering (0<x<=1) or exact number x>1")
+    parser.add_argument("-x", "--topX", type=float, default=0.01, help="Ratio of decoys to take for clustering (0<x<=1) or exact number x>1")
 
     return parser.parse_args()
 
@@ -268,8 +255,6 @@ def main():
     os.makedirs("clustering", exist_ok=True)
     os.makedirs("results", exist_ok=True)
 
-    clean_dir(['clustering', 'results'])
-
     if not os.path.isfile(args.silent_file):
         raise RuntimeError(f'Silent file {args.silent_file} does not exist.')
 
@@ -285,7 +270,7 @@ def main():
     actual_radius = calculate_actual_radius(all_poses[0], args.radius)
 
     # Run clustering and process the results
-    clusters = run_clustering(all_poses, actual_radius)
+    clusters = run_clustering(all_poses, 0.434846)
     process_clusters(clusters)
 
 

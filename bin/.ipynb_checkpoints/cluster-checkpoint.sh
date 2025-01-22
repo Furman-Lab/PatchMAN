@@ -3,5 +3,4 @@
 #SBATCH --mem=2000m
 #SBATCH --get-user-env
 
-mkdir -p clustering/
-python3 "$PROTOCOL_ROOT/bin/cluster.py" > clustering/clog
+python3 "$PROTOCOL_ROOT/bin/cluster.py"

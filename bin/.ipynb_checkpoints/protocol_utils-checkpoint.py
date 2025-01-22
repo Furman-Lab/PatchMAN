@@ -21,29 +21,26 @@ def load_config(config_file_path="config.ini"):
 	config_dict = dict()
 	
 	# Determine the hostname section to use
-	hostname = socket.gethostname()
+	hostname = socket.gethostname() #.split('-')[0]
 	specific_config = ''
 	for section in config.sections():
 		if section.startswith('HOSTNAME:') and section[len('HOSTNAME:'):] in hostname:
 			specific_config = section
 			break
 
+	# Handle specific configurations based on hostname
+	config_dict['ADD_SBATCH'] = config.get(specific_config, 'ADD_SBATCH', fallback=[])
+	
 	# Initialize PROTOCOL_ROOT from the configuration or use the script's location as a default
 	protocol_root = Path(config.get('DEFAULT', 'PROTOCOL_ROOT', fallback=str(Path(__file__).resolve().parent.parent)))
-
-	# Handle specific configurations based on hostname
-	config_dict['ADD_SBATCH'] = config.get(specific_config, 'ADD_SBATCH', fallback='')
-	os.environ['FPD_NUM_JOBS'] = str(config.get(specific_config, 'FPD_NUM_JOBS', fallback=50))
-	os.environ['FPD_TASKS_PER_JOB'] = str(config.get(specific_config, 'FPD_TASKS_PER_JOB', fallback=3))
-	os.environ['FPD_MEM_PER_TASK'] = str(config.get(specific_config, 'FPD_MEM_PER_TASK', fallback='2GB'))
-	os.environ['FPD_TIME'] = str(config.get(specific_config, 'FPD_TIME', fallback='120:00:00'))
-
+	
 	# Dynamically derive DB_PATH from PROTOCOL_ROOT if not specified
 	db_path = config.get('DEFAULT', 'DB_PATH', fallback=protocol_root / 'databases/master_clean/')
 	
 	# Setting up environment variables
 	os.environ['PROTOCOL_ROOT'] = str(protocol_root)
 	os.environ['DB_PATH'] = str(db_path)
+	os.environ['PYTHON'] = 'python3'
 	os.environ['BIN_DIR'] = f'{protocol_root}/bin'
 	
 	# Example: Print environment variables to verify
@@ -106,7 +103,7 @@ def submit_job(script, args=[], dependency=None, slurm_opts=None):
 	if slurm_opts:
 		cmd.extend(slurm_opts)
 	cmd.append(script)
-	cmd.extend(args) if len(args) > 0 else None
+	cmd.extend(args)
 	result = subprocess.run(" ".join([str(item) for item in cmd]), capture_output=True, text=True, check=True, shell=True)
 
 	return result.stdout.strip().split()[-1]
@@ -147,38 +144,33 @@ def parse_args():
 	parser.add_argument("receptor", type=str, help="PDB file with the receptor")
 	parser.add_argument("peptide_sequence", type=str,
 	                    help='Peptide sequence can include modified residues in "GFK[SER:phosphorylated]RAD" format.')
-
-	# Focus/mask/hotspot mode
+	parser.add_argument("-m", "--min_rec_bb", action="store_true",
+	                    help="Minimize receptor backbone (default: false)")
+	parser.add_argument("-g", "--log_file", type=str, default="stdout", help="Log file (Default is stdout)")
+	parser.add_argument("-e", "--error_log_file", type=str, default="stderr", help="Error log file (Default is stderr)")
+	parser.add_argument("-n", "--job_name", type=str, default="PatchMAN_JOB", help="Job name (Default: PatchMAN_JOB)")
+	parser.add_argument("-v", "--verbose", action="store_true", help="Print information about the job")
+	parser.add_argument("-w", "--work_dir", type=Path, default=Path.cwd(),
+	                    help="Working directory (Default: current directory)")
+	parser.add_argument("-a", "--native_pdb", type=Path,
+	                    help="Native PDB if exists. Needs to be exactly the same chains and lengths for both receptor and peptide")
+	parser.add_argument("-t", "--nstruct", type=int, default=1,
+	                    help="Number of structures to generate (Default: 1)")
+	parser.add_argument("-c", "--master_cutoff", type=float, default=1.5, help="Master cutoff (Default: 1.5)")
+	parser.add_argument("-o", "--hotspot_mode", action="store_true",
+	                    help="Hotspot mode, only the residues in focus will be used as patch centers (Default: false)")
 	parser.add_argument("-s", "--mask_pdb", type=Path,
 	                    help="PDB file with residues that should or should not be in the binding site (type: pdb file, Default: None)")
 	parser.add_argument("-l", "--list_of_residues", type=str,
 	                    help='List of residues that should or should not be in the binding site (type: string, Default: None, format: "A23,A12")')
 	parser.add_argument("-f", "--focus_mode", action="store_true",
 	                    help="Focus mode - the residues should from -l or -s should form the binding site (type: boolean, Default: False, masking mode)")
-	parser.add_argument("-o", "--hotspot_mode", action="store_true",
-	                    help="Hotspot mode, only the residues in focus will be used as patch centers (Default: false)")
-
-	# MASTER arguments
-	parser.add_argument("-c", "--master_cutoff", type=float, default=1.5, help="Master cutoff (Default: 1.5)")
-
-	# FlexPepDock arguments
-	parser.add_argument("-m", "--min_rec_bb", action="store_true",
-	                    help="Minimize receptor backbone (default: false). Gives better results but increases runtime")
-	parser.add_argument("-a", "--native_pdb", type=Path,
-	                    help="Native PDB if exists. Needs to be exactly the same chains and lengths for both receptor and peptide")
-	parser.add_argument("-t", "--nstruct", type=int, default=1,
-	                    help="Number of structures to generate (Default: 1)")
-	parser.add_argument("-u", "--cluster_radius", type=str, default="2",
-	                    help="Cluster radius for clustering with Rosetta. This will be normalized by the length of the peptide. (Default: None)")
-
-
 	parser.add_argument("-p", "--steps", type=str,
 	                    help="Steps to run between (Default: 1-6, 1: split to motifs, 2: prepack receptor, 3: run MASTER, 4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)")
 	parser.add_argument("-b", "--benchmark", type=str, default=None,
-	                    help="Benchmark mode, removed specified PDB id-s from MASTER search (Default: None)")
-	parser.add_argument("-w", "--work_dir", type=Path, default=Path.cwd(),
-	                    help="Working directory (Default: current directory)")
-	parser.add_argument("-v", "--verbose", action="store_true", help="Print information about the job")
+	                    help="Benchmark mode, use the benchmark mode of FlexPepDock with the file provided (Default: None)")
+	parser.add_argument("-u", "--cluster_radius", type=str, default="2",
+	                    help="Cluster radius for clustering with Rosetta (Default: None)")
 	
 	args = parser.parse_args()
 	
@@ -218,12 +210,12 @@ def parse_args():
 
 	# Additional arguments for FlexPepDock - store them in args for simplicity
 	args.fpd_args = []
-	if args.min_rec_bb:
-		args.fpd_args.append(f"-m")
+	args.fpd_args.append(["-m", args.min_rec_bb])
 	if args.nstruct:
-		args.fpd_args.append(f"-t {args.nstruct}")
+		args.fpd_args += ["-t", args.nstruct]
 	if args.native_pdb:
-		args.fpd_args.append(f"-a {args.native_pdb}")
+		args.fpd_args += ["-a", args.native_pdb]
+	
 	return args
 
 
@@ -236,7 +228,6 @@ def prepare_pdb(filepath):
 	validate_pdb(filepath)
 	new_file = os.path.join(os.getcwd(), os.path.basename(filepath))
 	shutil.copy(filepath, new_file)
-
 	return new_file
 
 
@@ -279,17 +270,15 @@ def prepare_mask_and_focus(args):
 	"""
 	focus_mask_args = ""
 	
-	focus_mask_list = args.list_of_residues
+	focus_list = args.list_of_residues
 	mask_focus = args.mask_pdb
 	
-	if focus_mask_list and mask_focus:
+	if focus_list and mask_focus:
 		print("Provide either PDB file or list for mask/focus residues!", file=sys.stderr)
 		sys.exit(1)
 	elif mask_focus:
 		mask_focus_prepared = prepare_pdb(mask_focus)  # Assumes prepare_pdb returns a str or Path
 		focus_mask_args = f"-s {mask_focus_prepared}"
-	elif focus_mask_list:
-		focus_mask_args = f"-l {focus_mask_list}"
 	
 	return focus_mask_args
 
@@ -347,7 +336,8 @@ def prepare_benchmark_mode(args, receptor_base):
 		
 		# Adjust master_args and fpd_args
 		args.master_args = 'db_list_30nonred'
-		args.fpd_args.append(" -b")
+		args.fpd_args = f"{fpd_args} -b"
 	else:
 		args.master_args = f'{os.environ["PROTOCOL_ROOT"]}/db_list_30nonred'
+		args.fpd_args = []
 	return args
