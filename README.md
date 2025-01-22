@@ -17,8 +17,8 @@ The protocol consists of 4 consecutive steps: (1) Definition of surface patches 
 #### Downloading software and data
 1. Obtain the files in this repo: 
    `git clone --branch python https://github.cs.huji.ac.il/fora-lab/PatchMAN-forServer`  
-3. Register for [MASTER v1.6](https://grigoryanlab.org/index.php?sec=download&soft=MASTER), go to the download page and add its URL to create_env.sh (to define $MASTER_URL).
-4. Run `bash download_data_and_software.sh`, that will take care of downloading all the required files and extracting the databases to the `databases/` directory. This usually takes 5-10mins.
+2. Register for [MASTER v1.6](https://grigoryanlab.org/index.php?sec=download&soft=MASTER), go to the download page and add its URL to create_env.sh (to define $MASTER_URL).
+3. Run `bash download_data_and_software.sh`, that will take care of downloading all the required files and extracting the databases to the `databases/` directory. This usually takes 5-10mins.
 
 #### Installation with conda/mamba environment (recommended)
 To create a new environment, just simply run the following command:
@@ -45,7 +45,7 @@ The peptide can contain post-translational modifications, denoted by Rosetta sta
 
 ```ls <env_path>/lib/python3.11/site-packages/pyrosetta/database/chemical/residue_type_sets/fa_standard/patches```
 
-:exclamation: Note that the protocol script is set up to use the Slurm job scheduler. Using another type of scheduler needs editing of the `config.ini` file and the `.sh`  and fpd.py files in the `bin/` directory.
+:exclamation: Note that the protocol script is set up to use Slurm job scheduler. Using an other type of scheduler needs editing of the `config.ini` file and the `.sh`  and fpd.py files in the `bin/` directory. Unfortunately, we cannot help with that.
 
 #### Test run
 A test run of PatchMAN can be performed on the 1ssh.pdb in the `test/` directory. Turning off receptor backbone minimization for testing purposes decreases runtime:
@@ -82,20 +82,20 @@ Focus/mask/hotspot:
 ---
 ### Citing PatchMAN
 
-**Matching protein surface structural patches for high-resolution blind peptide docking**  
-Khramushin A., Tsaban T., Varga J., Avraham O., Schueler-Furman O. (2022) 
-*PNAS, 119:e2121153119. doi:10.1073/pnas.2121153119*  
+**PatchMAN docking: Modeling peptide-protein interactions in the context of the receptor surface**  
+Alisa Khramushin, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman  
+*bioRxiv 2021.09.02.458699; doi:https://doi.org/10.1101/2021.09.02.458699*  
 
 Please also cite the following papers:
 
 **Rapid Search for Tertiary Fragments Reveals Protein Sequence-Structure Relationships**  
-Zhou J., Grigoryan G. (2015) 
-*Protein Science, 24:508-524*  
+Zhou J., Grigoryan G.  
+*Protein Science, 24(4): 508-524, 2015.*  
 
 **Sub-angstrom modeling of complexes between flexible peptides and globular proteins**  
-Raveh B., London N., Schueler-Furman O. (2010).  
-*Proteins, 78:2029-40*  
+Raveh B, London N, Schueler-Furman O. (2010).  
+*Proteins 78:2029-40.*  
 
 **PyRosetta: a script-based interface for implementing molecular modeling algorithms using Rosetta**  
-Chaudhury S., Lyskov S., Gray JJ. (2010)  
-*Bioinformatics, 26:689-691. doi:10.1093/bioinformatics/btq007*  
+Chaudhury S, Lyskov S, Gray JJ.  
+*Bioinformatics. 2010;26(5):689-691. doi:10.1093/bioinformatics/btq007*  
