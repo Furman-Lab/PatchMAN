@@ -25,8 +25,11 @@ To create a new environment, just simply run the following command:
 ```
 bash create_env.sh
 ```
-This will also take 5-10 mins, and it needs to download and extract pyrosetta. By default, it install the environment in the current directory.   
-If you want to install it in a different directory, modify or remove the `prefix` in the: `micromamba env create` line.
+:exclamation: the script uses micromamba for Linux. If you use another OS, change the `MICROMAMBA_URL` accordingly and might need to modify a few commands also. See:
+- MacOS: https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html#linux-and-macos
+- Windows: https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html#windows
+
+Running the env installation will also take 5-10 mins, and it needs to download and extract pyrosetta. By default, it install the environment in the current directory. If you want to install it in a different directory, modify or remove the `prefix` in the: `micromamba env create` line.
 
 ### Quick start
 
