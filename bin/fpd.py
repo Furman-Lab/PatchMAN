@@ -145,7 +145,7 @@ def run_fpd_cluster(list_of_inputs, init_opts, min_rec_bb=False, output_path='.'
                     if line.startswith("SCORE"):
                         score_file.write(line)
                     combined_file.write(line)
-            #os.remove(silent_file)  # Clean up individual worker silent files
+            os.remove(silent_file)  # Clean up individual worker silent files
 
     print(f"Combined silent file written to {combined_silent_file}")
     print(f"Scores written to {score_file_path}")
