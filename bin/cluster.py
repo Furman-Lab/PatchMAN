@@ -2,14 +2,23 @@ import os
 import sys
 import math
 import argparse
-import subprocess
 import pandas as pd
+from shutil import copyfile
 
 import pyrosetta
-from shutil import copyfile
+#import pyrosetta.distributed.io as io
+import pyrosetta.io as io
+import pyrosetta.rosetta.core as core
 from pyrosetta.io.silent_file_map import SilentFileMap
-from pyrosetta.rosetta.core.pose import Pose, tag_from_pose
+from pyrosetta.rosetta.core.pose import Pose, tag_from_pose, tag_into_pose, get_chains
 from pyrosetta.rosetta.protocols.cluster import ClusterPhilStyle
+import pandas
+import difflib
+import pyrosetta.distributed.packed_pose as packed_pose
+from pyrosetta.rosetta.std import map_core_id_AtomID_core_id_AtomID
+from pyrosetta.rosetta.core.id import AtomID
+from pyrosetta.rosetta.core.scoring import superimpose_pose, gdtha
+
 
 
 def filter_and_select_top_structures(scores, tags_to_remove=[], score_type='reweighted_sc', topX=None):
@@ -48,7 +57,7 @@ def filter_and_select_top_structures(scores, tags_to_remove=[], score_type='rewe
     return top_percent_df
 
 
-def read_pose(silent_struct, tag, sort_by_score='reweighted_sc'):
+def read_pose(silent_struct, tag, score=None, sort_by_score='reweighted_sc'):
     pose = Pose()
     silent_struct.fill_pose(pose)
     pyrosetta.rosetta.core.pose.tag_into_pose(pose, tag)
@@ -56,10 +65,12 @@ def read_pose(silent_struct, tag, sort_by_score='reweighted_sc'):
 
     # This is for making our life easier when sorting later. It will not be written out.
     silent_struct.energies_into_pose(pose)
-    if sort_by_score in pose.scores.keys():
+    if score: # for non-rosetta inputs
+        pose.scores['silent_score'] = score
+    elif sort_by_score in pose.scores.keys():
         pose.scores['silent_score'] = pose.scores[sort_by_score]
     else:
-        raise ValueError(f'{sort_by_score} cannot be read from silent file, defaulting to total_score')
+        print (f'{sort_by_score} cannot be read from silent file, defaulting to total_score')
 
     return pose
 
@@ -91,6 +102,64 @@ def read_poses_from_silentfile(silent_file, tags, sort_by_score='reweighted_sc')
     return all_poses
 
 
+def read_poses_from_list(list_of_pdbs, list_of_scores=None, start_pep=None, end_pep=None, add_rec=True, invert_score=False):
+    all_poses = []
+
+    if type(list_of_pdbs) == dict:
+        dict_of_inputs = list_of_pdbs
+    elif type(list_of_pdbs) == list and type(list_of_scores) == list:
+        if len(list_of_pdbs) != len(list_of_scores):
+            raise ValueError('List of PDBs and scores must be of the same length')
+        dict_of_inputs = dict(zip(list_of_pdbs, list_of_scores))
+
+
+    for i, pose_path in enumerate(list_of_pdbs):
+        pose = io.pose_from_file(pose_path)
+        
+        # if we need to cut the peptide, put it in a new pose
+        if start_pep and end_pep:
+            start_pep_pose = pose.pdb_info().pdb2pose('B', start_pep)
+            end_pep_pose = pose.pdb_info().pdb2pose('B', end_pep)
+            if end_pep_pose == 0:
+                raise ValueError(f'A peptide residue with number {end_pep} does not exist in {pose_path}.')
+            # build the new pose
+            if add_rec:
+                pose_new = pose.split_by_chain(1)
+                core.pose.append_subpose_to_pose(pose_new, pose, start_pep_pose, end_pep_pose, True)
+            else:
+                pose_new = Pose()
+                core.pose.append_subpose_to_pose(pose_new, pose, start_pep_pose, end_pep_pose)
+            pose = pose_new
+            del pose_new # just to be on the safe side
+        elif not add_rec:
+            pose_new = pose.split_by_chain(2) # add only the full peptide
+            pose = pose_new
+            del pose_new # just to be on the safe side
+        else:
+            pass # this will use the whole complex for clustering
+            
+        
+        # we need to name the pose
+        tag = os.path.basename(pose_path).split('.')[0]
+        tag_into_pose(pose, tag)
+        
+        # if a score was input, store it in the pose
+        if list_of_scores:
+            score = list_of_scores[i]
+            # inverting is for cases when the largest value is better
+            pose.scores['silent_score'] = -score if invert_score else score
+
+        all_poses.append(pose)
+    
+    return all_poses
+
+def extract_peptides(list_of_poses):
+    peptides = []
+    for pose in list_of_poses:
+        peptides.append(pose.split_by_chain(2))
+    return peptides
+
+
 def extract_and_sort_score_file(score_file='score.sc', output_file="sorted.sc"):
     """
     Extract columns from the score file (score.sc), sort by 'reweighted_sc', and return the result as a pandas DataFrame.
@@ -119,6 +188,7 @@ def extract_and_sort_score_file(score_file='score.sc', output_file="sorted.sc"):
 
     return scores_sorted
 
+
 def calculate_actual_radius(pose, radius=2):
     """
     Calculate radius to use based on the peptide length.
@@ -130,8 +200,12 @@ def calculate_actual_radius(pose, radius=2):
     """
     
     # We assume two chains: receptor first, peptide second
-    peptide_length =  len(pose.chain_sequence(1))
-    total_length =  len(pose.chain_sequence(2))
+    if len(get_chains(pose)) == 2:
+        peptide_length =  len(pose.chain_sequence(2))
+        total_length =  len(pose.chain_sequence(1)) + peptide_length
+    else:
+        # cluster only by peptide backbone
+        peptide_length = len(pose.chain_sequence(1))
 
     # Calculate the actual radius using the formula
     actual_radius = math.sqrt(peptide_length / total_length) * radius
@@ -142,7 +216,7 @@ def calculate_actual_radius(pose, radius=2):
     return actual_radius
 
 
-def run_clustering(all_poses, actual_radius, cluster_by_bb=True, max_num_clusters=None):
+def run_clustering(all_poses, actual_radius, cluster_by_bb=True, max_num_clusters=None, outdir='clustering/'):
     """
     This runs the clustering (Phil style, the same as in the default cmdline application, and then sorts the structures according to the score defined in read_poses_from_silentfile.
     :param all_poses: list of PyRosetta Pose objects to be clustered
@@ -155,7 +229,7 @@ def run_clustering(all_poses, actual_radius, cluster_by_bb=True, max_num_cluster
     clphil = ClusterPhilStyle()
     clphil.set_cluster_radius(actual_radius)
 
-    # Set type of clustering
+    #Set type of clustering
     if cluster_by_bb:
         clphil.set_cluster_by_protein_backbone(True)
     else:
@@ -175,6 +249,12 @@ def run_clustering(all_poses, actual_radius, cluster_by_bb=True, max_num_cluster
     clphil.print_summary()
     clphil.print_cluster_assignment()
 
+    # only if clustering/ directory exists
+    if os.path.isdir('clustering/'):
+        clphil.print_cluster_PDBs('clustering/')
+    else:
+        print("No clustering directory found, skipping printing cluster PDBs")
+
     return clphil
 
 
@@ -189,7 +269,7 @@ def copy_final_pdbs(cluster_id, member_id, rank):
         raise RuntimeError(f'Copying {clustering_file} to {target_file} was unsuccessful')
 
 
-def process_clusters(clusters):
+def process_clusters(clusters, scores=['I_sc', 'reweighted_sc', 'rmsBB_if']):
     """
     This function gets the top 10 lowest scoring clusters and outputs their cluster centers as solutions.
     Ranking according to Rosetta reweighted or other score, specified in read_poses_from_silentfile function.
@@ -197,31 +277,39 @@ def process_clusters(clusters):
 
     output: files in clustering/ and results/ directories
     """
-    clusters.print_cluster_PDBs('clustering/')
-
     # Gather values for the final file
     pose_list = []
     for index, cl in enumerate(clusters.get_cluster_list()):
         for p in range(cl.size()):
             pose = clusters.get_pose_list()[cl[p]]
-            scores = pose.scores
-            pose_list.append(
-                [tag_from_pose(pose), index, p, round(scores['I_sc'], 3), round(scores['reweighted_sc'], 3),
-                 round(scores['rmsBB_if'], 3)])
+            pose_scores = pose.scores
+            pose_data = [tag_from_pose(pose), index, p]
+            for score in scores:
+                pose_data.append(round(pose_scores[score], 3))
+                
+            pose_list.append(pose_data)
 
-    pose_df = pd.DataFrame(pose_list,
-                           columns=["Decoy_ID", "Cluster_no", "Member_ID", "I_sc", "reweighted_sc", "rmsBB_if"])
+    pose_df = pd.DataFrame(pose_list, columns=["Decoy_ID", "Cluster_no", "Member_ID"]+scores)
     pose_df = pose_df.apply(pd.to_numeric, errors='ignore')
 
     # Output dataframe similarly to previous runs for backward compatibility
     only_cluster_centers_df = pose_df.query('Member_ID == 0')
+
+    return only_cluster_centers_df
+
+
+def run_finalize(only_cluster_centers_df):
+    """
+    This will write out the dataframes and copy the top 10 structures to the results directory.
+    """
+    # Output dataframe similarly to previous runs for backward compatibility
     only_cluster_centers_df[["Decoy_ID", "Cluster_no", "Member_ID"]].to_csv('clustering/cluster_list',
                                                                             index=False, header=False, sep=' ')
     only_cluster_centers_df.sort_values('reweighted_sc').head(10).to_csv(
         'clustering/cluster_list_reweighted_sc_sorted', index=False, header=False, sep=' ')
     only_cluster_centers_df.sort_values('I_sc').head(10).to_csv('clustering/cluster_list_reweighted_sc_sorted',
                                                                 index=False, header=False, sep=' ')
-
+    
     # Create a df for the final 10 pdb-s
     top10_df = only_cluster_centers_df.sort_values('reweighted_sc').head(10)
     top10_df.insert(0, 'Rank', range(1, len(top10_df) + 1))
@@ -242,6 +330,7 @@ def clean_dir(dirs=[]):
             except FileNotFoundError:
                 pass
 
+            
 def parse_args():
     parser = argparse.ArgumentParser(description="Run clustering and finalization steps.")
     parser.add_argument("-w", "--work_dir", help="Directory containing decoys and other files.", default=".")
@@ -286,8 +375,44 @@ def main():
 
     # Run clustering and process the results
     clusters = run_clustering(all_poses, actual_radius)
-    process_clusters(clusters)
+    only_cluster_centers_df = process_clusters(clusters)
+    run_finalize(only_cluster_centers_df)
 
+
+def paired_residue_inds(a, b):
+    """Get paired indicies of common residues in two structures."""
+    # From: https://gist.github.com/asford/c2404c8b045700f016fda8893325c807 by Alex Ford
+    aseq = packed_pose.to_pose(a).sequence()
+    bseq = packed_pose.to_pose(b).sequence()
+
+    astart, bstart, align_len = difflib.SequenceMatcher(a=aseq, b=bseq).find_longest_match(0, len(aseq), 0, len(bseq))
+
+    return [(astart + i, bstart + i) for i in range(align_len)]
+
+
+def aligned_decoys(decoy_collection, align_to=None):
+    """CA-align all structures in collection to target (or first) structure."""
+    # From: https://gist.github.com/asford/c2404c8b045700f016fda8893325c807 by Alex Ford
+
+    decoy_collection = packed_pose.to_dict(decoy_collection)
+
+    if align_to is None:
+        align_to = decoy_collection[0]
+    align_to_pose = packed_pose.to_pose(align_to)
+
+    aligned_decoys = []
+    for decoy in decoy_collection:
+        work_pose = packed_pose.to_pose(decoy)
+        ca_map = map_core_id_AtomID_core_id_AtomID()
+        for w, a in paired_residue_inds(work_pose, align_to_pose):
+            ca_map[AtomID(work_pose.residue(w+1).atom_index("CA"), w+1)] = AtomID(
+                align_to_pose.residue(a+1).atom_index("CA"), a+1
+            )
+
+        superimpose_pose(work_pose, align_to_pose, ca_map)
+        aligned_decoys.append(work_pose)
+
+    return aligned_decoys
 
 if __name__ == "__main__":
     main()
