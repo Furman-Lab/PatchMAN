@@ -235,7 +235,10 @@ def prepare_pdb(filepath):
 	'''
 	validate_pdb(filepath)
 	new_file = os.path.join(os.getcwd(), os.path.basename(filepath))
-	shutil.copy(filepath, new_file)
+	try:
+		shutil.copy(filepath, new_file)
+	except:
+		print("The input is already in the working directory")
 
 	return new_file
 
