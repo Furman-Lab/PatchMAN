@@ -2,8 +2,6 @@
 #SBATCH	--mem-per-cpu=2gb
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
-#SBATCH --requeue
-#SBATCH --killable
 #SBATCH --nice=8000
 #SBATCH	--time=168:00:00
 #SBATCH	--kill-on-invalid-dep=yes
