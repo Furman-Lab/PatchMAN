@@ -166,10 +166,12 @@ def parse_args():
 	                    help="Minimize receptor backbone (default: false). Gives better results but increases runtime")
 	parser.add_argument("-a", "--native_pdb", type=Path,
 	                    help="Native PDB if exists. Needs to be exactly the same chains and lengths for both receptor and peptide")
-	parser.add_argument("-t", "--nstruct", type=int, default=1,
+	parser.add_argument("-t", "--nstruct", type=int, default=None,
 	                    help="Number of structures to generate (Default: 1)")
 	parser.add_argument("-u", "--cluster_radius", type=str, default="2",
 	                    help="Cluster radius for clustering with Rosetta. This will be normalized by the length of the peptide. (Default: None)")
+	parser.add_argument("-r", "--force_rerun_fpd", action="store_true",
+	                    help="Force rerunning FlexPepDock, even if there are already files in the directory")
 
 
 	parser.add_argument("-p", "--steps", type=str,
@@ -220,10 +222,12 @@ def parse_args():
 	args.fpd_args = []
 	if args.min_rec_bb:
 		args.fpd_args.append(f"-m")
-	if args.nstruct:
+	if args.nstruct is not None:
 		args.fpd_args.append(f"-t {args.nstruct}")
 	if args.native_pdb:
 		args.fpd_args.append(f"-a {args.native_pdb}")
+	if args.force_rerun_fpd:
+		args.fpd_args.append(f"-f ")
 	return args
 
 
