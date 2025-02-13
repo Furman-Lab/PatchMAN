@@ -98,6 +98,7 @@ def run_fpd_cluster(list_of_inputs, init_opts, min_rec_bb=False, output_path='.'
     import os
     import sys
 
+    print(f'starting pyrosetta with {init_opts}' )
     pyrosetta.distributed.init(init_opts)
 
     # Setup the cluster
