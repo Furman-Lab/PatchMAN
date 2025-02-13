@@ -380,7 +380,7 @@ def main():
 
 
 def paired_residue_inds(a, b):
-    """Get paired indicies of common residues in two structures."""
+    """Get paired indices of common residues in two structures."""
     # From: https://gist.github.com/asford/c2404c8b045700f016fda8893325c807 by Alex Ford
     aseq = packed_pose.to_pose(a).sequence()
     bseq = packed_pose.to_pose(b).sequence()
