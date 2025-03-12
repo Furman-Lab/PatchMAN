@@ -285,10 +285,10 @@ def prepare_mask_and_focus(args):
 	SystemExit: If both focus list and mask focus are provided.
 	"""
 	focus_mask_args = ""
-	
+
 	focus_mask_list = args.list_of_residues
 	mask_focus = args.mask_pdb
-	
+
 	if focus_mask_list and mask_focus:
 		print("Provide either PDB file or list for mask/focus residues!", file=sys.stderr)
 		sys.exit(1)
@@ -297,7 +297,12 @@ def prepare_mask_and_focus(args):
 		focus_mask_args = f"-s {mask_focus_prepared}"
 	elif focus_mask_list:
 		focus_mask_args = f"-l {focus_mask_list}"
-	
+
+	if args.focus_mode:
+		focus_mask_args += " -f"
+	if args.hotspot_mode:
+		focus_mask_args += " -o"
+
 	return focus_mask_args
 
 
