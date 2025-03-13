@@ -19,23 +19,18 @@ class PyRosettaFPDPlugin(WorkerPlugin):
         self.native_path = native_path  # Path to native PDB if needed
     
     def setup(self, worker):
+        """Initialized FPD mover only once for each worker"""
         import pyrosetta
+        from pyrosetta.rosetta.protocols.rosetta_scripts import RosettaScriptsParser
+        self.worker = worker
         
-        # Step 1: Initialize PyRosetta once
+        # Initialize PyRosetta once
         print(f"Initializing PyRosetta on worker {worker.id}")
         pyrosetta.init(self.init_options)
         
-        # Step 2: Load native pose if path is provided
-        native_pose = None
-        if self.native_path:
-            print(f"Loading native pose from {self.native_path}")
-            native_pose = pyrosetta.pose_from_pdb(self.native_path)
-        
-        # Step 3: Create the FPD mover once
+        # Create the FPD mover once
         print(f"Creating FlexPepDock mover on worker {worker.id}")
-        
-        from pyrosetta.rosetta.protocols.rosetta_scripts import RosettaScriptsParser
-        
+
         # FlexPepDock XML definition
         xml = f"""
             <ROSETTASCRIPTS>
@@ -50,23 +45,27 @@ class PyRosettaFPDPlugin(WorkerPlugin):
                 </PROTOCOLS>
             </ROSETTASCRIPTS>
         """
-        
+
         # Run RosettaScripts
         parser = RosettaScriptsParser()
         default_options = pyrosetta.rosetta.basic.options.process()
         tag = parser.create_tag_from_xml_string(xml, default_options)
         fpd_protocol = parser.parse_protocol_tag(tag, default_options).get_mover(1)
         fpd_protocol.set_default()  # this will take care of unboundrot
-        
+
         # Set the native pose if provided
-        if native_pose:
+        if self.native_path:
+            native_pose = io.pose_from_file(self.native_path)
             fpd_protocol.set_native_pose(native_pose)
-            print(f"Native pose set on worker {worker.id}")
+            print(f"Native pose set on worker {worker.id} from {self.native_path}")
         else:
             print("No native pose provided, using the input as native.")
-        
-        # Store the mover as a worker attribute for reuse
+
+        # Store the mover as a worker attribute
         worker.fpd_mover = fpd_protocol
+
+        print(f"PyRosetta and FlexPepDock initialized on worker {worker.id}")
+        sys.stdout.flush()
 
 
 def keep_only_redundant_templates(input_files):
@@ -87,119 +86,17 @@ def keep_only_redundant_templates(input_files):
 
 
 def parse_mem_string(mem_string, multiply_by):
+    """ We need to calculate the required memory per task based on the number of tasks per job """
+    
     # remove all letters from the string, get also the letters separately
     mem_int = int(''.join(filter(str.isdigit, mem_string)))
     mem_unit = ''.join(filter(str.isalpha, mem_string))
     
     return str(mem_int * multiply_by) + mem_unit
 
-def create_fpd_mover(native_pose=None, min_rec_bb=False):
-    from pyrosetta.rosetta.protocols.rosetta_scripts import RosettaScriptsParser
-    # FlexPepDock XML definition
-    xml = f"""
-        <ROSETTASCRIPTS>
-            <SCOREFXNS>
-                <ScoreFunction name="sfxn" weights="ref2015"/>
-            </SCOREFXNS>
-            <MOVERS>
-                <FlexPepDock name="fpd" pep_refine="1" extra_scoring="1" lowres_preoptimize="1" min_receptor_bb='{int(min_rec_bb)}'/>
-            </MOVERS>
-            <PROTOCOLS>
-                <Add mover_name="fpd" />
-            </PROTOCOLS>
-        </ROSETTASCRIPTS>
-    """
 
-    # Run RosettaScripts
-    parser = RosettaScriptsParser()
-    default_options = pyrosetta.rosetta.basic.options.process()
-    tag = parser.create_tag_from_xml_string(xml, default_options)
-    fpd_protocol = parser.parse_protocol_tag(tag, default_options).get_mover(1)
-    fpd_protocol.set_default() # this will take care of unboundrot
-    
-    # Set the native pose if provided
-    if native_pose:
-        fpd_protocol.set_native_pose(native_pose)
-        print(fpd_protocol.get_native_pose().pdb_info())
-    else:
-        print("No native pose provided, using the input as native.")
-        
-    return fpd_protocol
-
-
-def protocol(pose_path, min_rec_bb, index, output_path, native_pose=None):
-    """Run FlexPepDock protocol and write to worker-specific silent files."""
-    from dask.distributed import get_worker
-    import os
-    import pyrosetta
-    import pyrosetta.distributed.io as io
-    from pyrosetta.rosetta.protocols.rosetta_scripts import RosettaScriptsParser
-    from pyrosetta.rosetta.protocols.jd2 import get_string_real_pairs_from_current_job
-
-    # Initialize worker-specific silent file
-    worker = get_worker()
-    worker_id = worker.id
-    silent_file_name = os.path.join(output_path, f"decoys_worker_{worker_id}.silent")
-
-    pose = io.pose_from_file(pose_path)
-    basename = os.path.splitext(os.path.basename(pose_path))[0]
-    numbered_basename = f"{basename}_{index:04d}"
-    
-    default_options = pyrosetta.rosetta.basic.options.process()
-    print(f'Parsed command line options: {default_options.get_argv()}')
-
-    print(f'Running FlexPepDock on {numbered_basename} (Worker {worker_id})')
-
-    # FlexPepDock XML definition
-    xml = f"""
-        <ROSETTASCRIPTS>
-            <SCOREFXNS>
-                <ScoreFunction name="sfxn" weights="ref2015"/>
-            </SCOREFXNS>
-            <MOVERS>
-                <FlexPepDock name="fpd" pep_refine="1" extra_scoring="1" lowres_preoptimize="1" min_receptor_bb='{int(min_rec_bb)}'/>
-            </MOVERS>
-            <PROTOCOLS>
-                <Add mover_name="fpd" />
-            </PROTOCOLS>
-        </ROSETTASCRIPTS>
-    """
-
-    # Run RosettaScripts
-    parser = RosettaScriptsParser()
-    default_options = pyrosetta.rosetta.basic.options.process()
-    tag = parser.create_tag_from_xml_string(xml, default_options)
-    fpd_protocol = parser.parse_protocol_tag(tag, default_options).get_mover(1)
-    fpd_protocol.set_default() # this will take care of unboundrot
-    
-    # Set the native pose if provided
-    if native_pose:
-        fpd_protocol.set_native_pose(native_pose)
-        print(fpd_protocol.get_native_pose().pdb_info())
-    else:
-        print("No native pose provided, using the input as native.")
-        
-    # Run the protocol on a copy of the input pose
-    out_pose = pose.pose.clone()
-    fpd_protocol.apply(out_pose)
-    
-    #packed_pose = rosetta_scripts.SingleoutputRosettaScriptsTask(xml)(pose.pose.clone())
-    #out_pose = pyrosetta.distributed.packed_pose.to_pose(packed_pose)
-    out_pose.pdb_info().name(numbered_basename)
-
-    # Add extra scores to Pose object
-    extra_scores = dict(get_string_real_pairs_from_current_job())
-    for k, v in extra_scores.items():
-        if not k.startswith('best'):
-            out_pose.scores[k] = v
-
-    # Save to the worker-specific silent file
-    io.to_silent(out_pose, silent_file_name)
-    print(f'Finished running FlexPepDock on {numbered_basename} (Worker {worker_id})')
-    sys.stdout.flush()
-    
-    
-def setup_cluster(list_of_inputs, nstruct):
+def get_cluster_args(list_of_inputs, nstruct):
+    """Get the argument values from the command line"""
     # Set up the cluster
     if 'FPD_NUM_JOBS' not in os.environ:
         os.environ['FPD_TASKS_PER_JOB'] = str(os.cpu_count() // 2)
@@ -219,7 +116,10 @@ def setup_cluster(list_of_inputs, nstruct):
     return tasks_per_job, memory_per_job
 
 
-def start_cluster(tasks_per_job, memory_per_job, init_opts):
+def start_cluster(tasks_per_job, memory_per_job):
+    """
+    Start a Dask cluster on the SLURM scheduler and return a client object.
+    """
     # Dashboard will be available at ip of localhost, port: 8787
     print(f"Dashboard URL: http://{socket.gethostname()}:8787")
     print(f"Submitting job array with {tasks_per_job} tasks per job, {memory_per_job} memory per job")
@@ -241,13 +141,15 @@ def start_cluster(tasks_per_job, memory_per_job, init_opts):
     )
     cluster.scale(jobs=1)
     client = Client(cluster)
-    client.register_plugin(PyRosettaInitPlugin(init_opts))
     
     return client
 
 
 def write_score_file_from_silent(output_path):
-    # Combine silent files, extract scores and save it to a separate file
+    """
+    Combine silent files, extract scores and save it to a separate file
+    """
+    
     print('Combining silent files and extracting scores...')
     combined_silent_file = os.path.join(output_path, "decoys.silent")
     score_file_path = os.path.join(output_path, "score.sc")
@@ -265,10 +167,13 @@ def write_score_file_from_silent(output_path):
     print(f"Scores written to {score_file_path}")
     
     
-def create_task_list(list_of_inputs, fpd_mover, nstruct=1, output_path='.', finished_decoys=None):
+def create_task_list(list_of_inputs, nstruct=1, output_path='.', finished_decoys=None):
+    """
+    Create a list of tasks to run on the cluster. If finished_decoys is provided, skip those decoys.
+    """
     # Create the task list
     if finished_decoys is None:
-        task_args = [(pose_path, fpd_mover, i, output_path)
+        task_args = [(pose_path, i, output_path)
                  for pose_path in list_of_inputs for i in range(1, nstruct + 1)]
         print(f"Running FlexPepDock on {len(list_of_inputs) * nstruct} decoys")
     else:
@@ -277,47 +182,79 @@ def create_task_list(list_of_inputs, fpd_mover, nstruct=1, output_path='.', fini
             basename = os.path.splitext(os.path.basename(pose_path))[0]
             for i in range(1, nstruct + 1):
                 if f"{basename}_{i:04d}" not in finished_decoys:
-                    task_args.append((pose_path, fpd_mover, i, output_path))
+                    task_args.append((pose_path, i, output_path))
         print(f"Resuming with {len(task_args)} decoys to run out of {len(list_of_inputs) * nstruct} decoys")
         
     return task_args
 
 
+def protocol(pose_path, index, output_path):
+    """
+    Run FlexPepDock protocol and write to worker-specific silent files.
+    """
+    from dask.distributed import get_worker
+    import os
+    import pyrosetta
+    import pyrosetta.distributed.io as io
+    import pyrosetta.distributed.tasks.rosetta_scripts as rosetta_scripts
+    from pyrosetta.rosetta.protocols.jd2 import get_string_real_pairs_from_current_job
+
+    # Initialize worker-specific silent file
+    worker = get_worker()
+    worker_id = worker.id
+    silent_file_name = os.path.join(output_path, f"decoys_worker_{worker_id}.silent")
+
+    pose = io.pose_from_file(pose_path)
+    basename = os.path.splitext(os.path.basename(pose_path))[0]
+    numbered_basename = f"{basename}_{index:04d}"
+
+    print(f'Running FlexPepDock on {numbered_basename} (Worker {worker_id})')
+
+    out_pose = pyrosetta.distributed.packed_pose.to_pose(pose)
+    fpd_protocol = worker.fpd_mover
+    fpd_protocol.apply(out_pose)
+    out_pose.pdb_info().name(numbered_basename)
+
+    # Add extra scores to Pose object
+    extra_scores = dict(get_string_real_pairs_from_current_job())
+    for k, v in extra_scores.items():
+        if not k.startswith('best'):
+            out_pose.scores[k] = v
+
+    # Save to the worker-specific silent file
+    io.to_silent(out_pose, silent_file_name)
+    print(f'Finished running FlexPepDock on {numbered_basename} (Worker {worker_id})')
+    sys.stdout.flush()
+
+
 def run_fpd_cluster(list_of_inputs, init_opts, min_rec_bb=False, output_path='.', nstruct=1, finished_decoys=None, native=None):
     """
-    Run FlexPepDock protocol on a list of input structures using a Dask cluster.
-    :param list_of_inputs: List of input structures, as paths
-    :param init_opts: Options to initialize PyRosetta, a string
-    :param min_rec_bb: Use receptor backbone minimization
-    :param output_path: Output directory
-    :param nstruct: Number of decoys to generate per input structure
-    :param finished_decoys: List of decoys that were already run, so that we not repeat them
-    :param native: Native structure for comparison
+    Initializes the cluster and its workers, generate the list of tasks to run.
+    Then, combines the silent files and creates a score file.
     """
+    pyrosetta.distributed.init(init_opts)
     
-    print(f'starting pyrosetta with {init_opts}' )
-    pyrosetta.init(init_opts)
-    
-    # Set up the cluster
-    tasks_per_job, memory_per_job = setup_cluster(list_of_inputs, nstruct)
+    # Setup the cluster
+    tasks_per_job, memory_per_job = get_cluster_args(list_of_inputs, nstruct)
     
     # Create the task list
-    native_pose = io.pose_from_file(native) if native else None
-    fpd_mover = create_fpd_mover(native_pose, min_rec_bb)
-    task_args = create_task_list(list_of_inputs, fpd_mover, nstruct, output_path, finished_decoys)
+    task_args = create_task_list(list_of_inputs, nstruct, output_path, finished_decoys)
     
-    # Start the cluster
-    client = start_cluster(tasks_per_job, memory_per_job, init_opts)
+    # Run the cluster and the jobs
+    client = start_cluster(tasks_per_job, memory_per_job)
+    client.register_plugin(PyRosettaFPDPlugin(init_opts, min_rec_bb, native))
     futures = client.map(lambda args: protocol(*args), task_args)
     client.gather(futures)
-    print("All tasks completed.")
-
-    # Extract the scores from the silent file to a separate file
+    
+    print("All tasks completed. Combining silent files and extracting scores...")
     write_score_file_from_silent(output_path)
-
 
 # Decide on nstruct based on upper limit or user input
 def set_nstruct(n_templates, max_nstruct_per_decoy, max_nstruct_total=20000, args=None):
+    """
+    User input always overwrites calcilation.
+    Otherwise, we do not want to refine more then 20000 decoys, but we also dont want to refine more than 10 decoys per input structure.
+    """
     if args and args.nstruct:
         nstruct = args.nstruct
     else:
