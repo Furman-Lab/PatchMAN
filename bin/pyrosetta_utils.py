@@ -55,39 +55,35 @@ def parse_mask_and_focus(args):
         pose = load_and_clean_pdb(args.mask_focus)
         check_list = convert_rosetta_numbering_to_pdb_numbering(pose.pdb_info())
 
-    if not args.focus and args.hotspot_mode:
-        print('ERROR: Hotspot mode does not work with masking, omitting hotspot mode')
-        sys.exit(1)
-
-    print('mask/focus residues are: ' + ','.join(check_list))
+    print('Mask/focus residues are: ' + ','.join(check_list))
 
     return check_list
 
 def load_and_clean_pdb(pdb_file, return_name=False):
-	"""Load and clean pdb file
-	:param pdb_file: pdb file
-	:param return_name: return name of
-	:return: pose and name of  if asked for
-	"""
-	# print working directory
-	toolbox.cleaning.cleanATOM(pdb_file)
-	prot_name = os.path.splitext(os.path.basename(pdb_file))[0]
-	print('Loading ' + prot_name + '.clean.pdb')
-	pose = pose_from_pdb(prot_name + '.clean.pdb')
+    """Load and clean pdb file
+    :param pdb_file: pdb file
+    :param return_name: return name of
+    :return: pose and name of  if asked for
+    """
+    # print working directory
+    toolbox.cleaning.cleanATOM(pdb_file)
+    prot_name = os.path.splitext(os.path.basename(pdb_file))[0]
+    print('Loading ' + prot_name + '.clean.pdb')
+    pose = pose_from_pdb(prot_name + '.clean.pdb')
 
-	if return_name:
-		return pose, prot_name
-	else:
-		return pose
+    if return_name:
+        return pose, prot_name
+    else:
+        return pose
 
 
 def convert_rosetta_numbering_to_pdb_numbering(pdbinf, resn_list=None):
     """
-	Function to convert the numbering of the residues from Rosetta numbering to PDB numbering
-	:param pose: input pose
-	:param resn_list: list of residue numbers in Rosetta numbering
-	:return: list of residue numbers in PDB numbering
-	"""
+    Function to convert the numbering of the residues from Rosetta numbering to PDB numbering
+    :param pose: input pose
+    :param resn_list: list of residue numbers in Rosetta numbering
+    :return: list of residue numbers in PDB numbering
+    """
     if not resn_list:
         resn_list = [x for x in range(1, pdbinf.nres() + 1)]
     pdb_number_resn_list = []
