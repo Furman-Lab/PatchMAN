@@ -350,7 +350,7 @@ def prepare_benchmark_mode(args, receptor_base):
 		# Filter out entries from the db_list_30nonred that are listed in benchmark_file
 		with open(f'{os.environ["PROTOCOL_ROOT"]}/db_list_30nonred', 'r') as db_file, \
 				open('benchmark_file', 'r') as benchmark_file, \
-				open('custom_db_list_30nonred', 'w') as output_file:
+				open('db_list_30nonred', 'w') as output_file:
 			benchmark_entries = set(benchmark_file.read().splitlines())
 			for db_line in db_file:
 				# Check if any line from db_list_30nonred is not in the benchmark entries
