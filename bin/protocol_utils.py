@@ -164,7 +164,7 @@ def parse_args():
 	# FlexPepDock arguments
 	parser.add_argument("-m", "--min_rec_bb", action="store_true",
 	                    help="Minimize receptor backbone (default: false). Gives better results but increases runtime")
-	parser.add_argument("-a", "--native_pdb", type=Path,
+	parser.add_argument("-a", "--native_pdb", type=Path, default=None,
 	                    help="Native PDB if exists. Needs to be exactly the same chains and lengths for both receptor and peptide")
 	parser.add_argument("-t", "--nstruct", type=int, default=None,
 	                    help="Number of structures to generate (Default: 1)")
@@ -264,10 +264,9 @@ def prepare_and_set_filenames(receptor_path):
 	
 	# Extract the base name without extension
 	rec_name = os.path.splitext(receptor_base)[0]
-	clean_rec = f"{rec_name}.clean.pdb"
 	ppkrec = f"{rec_name}.clean.ppk.pdb"
 	
-	return receptor, receptor_base, clean_rec, ppkrec
+	return receptor, receptor_base, ppkrec
 
 
 def prepare_mask_and_focus(args):

@@ -333,10 +333,10 @@ def split_to_motifs():
 	# split the surface into motifs
 	motifs = define_motifs(pose, prot_name, check_list=check_list, focus=args.focus, hotspot_mode=args.hotspot_mode, debug=args.verbose)
 	print("The surface was split into " + str(len(set(motifs))) + " patches")
-	
+
 	# Listing motif files and creating motif_list
 	protocol_utils.create_motif_list(os.path.basename(args.input)[:-4], 'motif_list')
-	
+
 	# Create search files for MASTER
 	protocol_utils.run_createPDS('motif_list')
 

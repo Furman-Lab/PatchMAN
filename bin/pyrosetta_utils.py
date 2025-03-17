@@ -65,11 +65,23 @@ def load_and_clean_pdb(pdb_file, return_name=False):
     :param return_name: return name of
     :return: pose and name of  if asked for
     """
+    # TODO: mask_focus crashes on first loading for some reason, even if a valid cif file is provided
+
     # print working directory
-    toolbox.cleaning.cleanATOM(pdb_file)
+    print("cleaning: ", pdb_file)
     prot_name = os.path.splitext(os.path.basename(pdb_file))[0]
-    print('Loading ' + prot_name + '.clean.pdb')
-    pose = pose_from_pdb(prot_name + '.clean.pdb')
+
+    # this is because cleanATOM doesnt correctly handle cif files
+    if pdb_file.endswith('.cif'):
+        pose = pyrosetta.rosetta.core.import_pose.pose_from_file(pdb_file)
+        pdb_file = f'{prot_name}.pdb'
+        pose.dump_pdb(pdb_file)
+
+    toolbox.cleaning.cleanATOM(pdb_file)
+    clean_filename = f'{prot_name}.clean.pdb'
+
+    print(f'Loading : {clean_filename}')
+    pose = core.import_pose.pose_from_file(clean_filename)
 
     if return_name:
         return pose, prot_name

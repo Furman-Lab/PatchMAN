@@ -11,12 +11,13 @@ pep_sequence = validate_peptide_sequence(args.peptide_sequence)
 args.focus_mask_args = prepare_mask_and_focus(args)
 
 # Prepare receptor and derived filenames
-receptor, receptor_base, clean_rec, ppkrec = prepare_and_set_filenames(args.receptor)
-args.fpd_args.append(f"-u {clean_rec}")
+receptor, receptor_base, ppkrec = prepare_and_set_filenames(args.receptor)
+args.fpd_args.append(f"-u {receptor}")
 
 # Copy also native file into directory
-args.native_pdb = prepare_pdb(args.native_pdb)
-args.fpd_args.append(f"-a {args.native_pdb}")
+if args.native_pdb:
+    args.native_pdb = prepare_pdb(args.native_pdb)
+    args.fpd_args.append(f"-a {args.native_pdb}")
 
 # Prepare for benchmark mode if provided
 args = prepare_benchmark_mode(args, receptor_base)
@@ -28,12 +29,6 @@ if 1 in args.steps_range:
     # Execute Python script directly, not a Slurm job
     subprocess.run(['python3', f"{os.environ['BIN_DIR']}/split_to_motifs.py", "-i", receptor,
                     *args.focus_mask_args.split()], check=True)
-
-    # Listing motif files and creating motif_list
-    create_motif_list(receptor_base[:-4], pdb_list_file)
-
-    # Create search files for MASTER
-    run_createPDS(pdb_list_file)
 
 # Calculate n_searches using motif_list
 n_searches = sum(1 for line in open(pdb_list_file))
