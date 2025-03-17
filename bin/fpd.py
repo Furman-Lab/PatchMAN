@@ -69,6 +69,9 @@ class PyRosettaFPDPlugin(WorkerPlugin):
 
 
 def keep_only_redundant_templates(input_files):
+    # There was an observation that many good fragments are extracted more than once, for nearby patches.
+    # Maybe number of refined templates could be significantly lowered if only these are retained
+    # Not used in current pipeline
     # Extract the middle part (2nd to 4th segments) from filenames
     segments = []
     for filename in input_files:
