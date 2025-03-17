@@ -196,7 +196,6 @@ def protocol(pose_path, index, output_path):
     import os
     import pyrosetta
     import pyrosetta.distributed.io as io
-    import pyrosetta.distributed.tasks.rosetta_scripts as rosetta_scripts
     from pyrosetta.rosetta.protocols.jd2 import get_string_real_pairs_from_current_job
 
     # Initialize worker-specific silent file
@@ -349,6 +348,10 @@ def main():
     
     # If we did not want to force rerunning and there are some decoys already finished, we need to list them
     finished_decoys = list_decoys_for_restarting() if not args.force_rerun else None
+    
+    # If args.native specified, check if it exists. Exit if not
+    if args.native and not Path(args.native).exists():
+        raise FileNotFoundError(f"Native structure {args.native} not found. Exiting...")
     
     # Run FlexPepDock
     print('Running FlexPepDock...')

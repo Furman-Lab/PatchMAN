@@ -14,6 +14,10 @@ args.focus_mask_args = prepare_mask_and_focus(args)
 receptor, receptor_base, clean_rec, ppkrec = prepare_and_set_filenames(args.receptor)
 args.fpd_args.append(f"-u {clean_rec}")
 
+# Copy also native file into directory
+args.native_pdb = prepare_pdb(args.native_pdb)
+args.fpd_args.append(f"-a {args.native_pdb}")
+
 # Prepare for benchmark mode if provided
 args = prepare_benchmark_mode(args, receptor_base)
 
