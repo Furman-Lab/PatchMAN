@@ -34,6 +34,92 @@ def two_atoms_distance(complex_pose, res1, atom1, res2, atom2):
     return distance
 
 
+def extract_check_list_from_file(filepath):
+    """
+    Extract residue numbers and chain IDs from PDB or CIF files.
+
+    Args:
+        filepath (str): Path to the PDB or CIF file
+
+    Returns:
+        str: Comma-separated list of chain ID + residue number (e.g., 'A13,A34,A56')
+
+    Raises:
+        ValueError: If required column information cannot be found in the CIF file header
+    """
+    # Determine file type from extension
+    file_type = filepath.lower().split('.')[-1]
+    
+    residues = set()  # Use a set to avoid duplicates
+    
+    if file_type == 'pdb':
+        with open(filepath, 'r') as file:
+            for line in file:
+                if line.startswith('ATOM'):
+                    # PDB format: columns are fixed width
+                    # Chain ID is typically at position 21
+                    # Residue number is typically at positions 22-26
+                    chain_id = line[21].strip()
+                    res_num = line[22:26].strip()
+                    residues.add(f"{chain_id}{res_num}")
+    
+    elif file_type == 'cif':
+        # For CIF files, we need to find the column indices from the header
+        auth_asym_id_col = -1  # Chain ID column
+        auth_seq_id_col = -1  # Residue number column
+        
+        with open(filepath, 'r') as file:
+            header_lines = []
+            in_header = False
+            in_atom_data = False
+            
+            for line in file:
+                line = line.strip()
+                
+                # Start collecting header when we see atom_site fields
+                if line.startswith('_atom_site.'):
+                    in_header = True
+                    header_lines.append(line.split('.')[-1])
+                
+                # When we exit the header section, process the collected headers
+                elif in_header and not line.startswith('_'):
+                    # Process header to find column indices
+                    chain_col = header_lines.index('auth_asym_id') if 'auth_asym_id' in header_lines else -1
+                    res_num_col = header_lines.index('auth_seq_id') if 'auth_seq_id' in header_lines else -1
+                    
+                    # If they are still -1, search for another key
+                    if chain_col == -1:
+                        chain_col = header_lines.index('label_asym_id') if 'label_asym_id' in header_lines else -1
+                    if res_num_col == -1:
+                        res_num_col = header_lines.index('label_seq_id') if 'label_seq_id' in header_lines else -1
+                    
+                    # Raise error if we couldn't find the required columns
+                    if chain_col == -1 or res_num_col == -1:
+                        raise ValueError(
+                            "Could not find required column information in CIF header. "
+                            "Need 'auth_asym_id'/'label_asym_id' for chain ID and "
+                            "'auth_seq_id'/'label_seq_id' for residue number."
+                        )
+                    
+                    in_header = False
+                    in_atom_data = True
+                
+                # Process ATOM records
+                if in_atom_data and line.startswith('ATOM') and 'CA' in line:
+                    columns = line.split()
+                    
+                    # Make sure we have enough columns
+                    if len(columns) > max(chain_col, res_num_col):
+                        chain_id = columns[chain_col]
+                        res_num = columns[res_num_col]
+                        residues.add(f"{chain_id}{res_num}")
+                    else:
+                        # This is an unexpected format error in the ATOM record
+                        raise ValueError(f"Warning: Skipping malformed ATOM record: {line}")
+    
+    return residues
+
+
 def parse_mask_and_focus(args):
     """Parse mask and focus residues
     :param args: command line arguments
@@ -52,8 +138,7 @@ def parse_mask_and_focus(args):
         check_list = args.resi_list.split(',')
     # process pdb file
     elif args.mask_focus is not None:
-        pose = load_and_clean_pdb(args.mask_focus)
-        check_list = convert_rosetta_numbering_to_pdb_numbering(pose.pdb_info())
+        check_list = extract_check_list_from_file(args.mask_focus)
 
     print('Mask/focus residues are: ' + ','.join(check_list))
 
