@@ -90,6 +90,7 @@ else:
 
 
 # Print job IDs for debugging or tracking
+print(f'Submitted receptor {receptor_base} with peptide: {args.peptide_sequence}')
 print("Job IDs:", {"Prepack": prepack_receptor_jid,
                    "Run MASTER": run_master_jid,
                    "Extract Templates": extract_templates_jid,
