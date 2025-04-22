@@ -38,8 +38,7 @@ print(f"Number of searches: {n_searches}")
 # Example for Step 2 - adjust according to actual scripts and parameters needed
 if 2 in args.steps_range:
     prepack_receptor_jid = submit_job(
-        f"{os.environ['BIN_DIR']}/prepare_input.sh",
-        args=[clean_rec]
+        f"{os.environ['BIN_DIR']}/prepare_input.sh"
     )
 else:
     prepack_receptor_jid = -1

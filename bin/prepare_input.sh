@@ -4,4 +4,4 @@
 #SBATCH --mem=1600m
 #SBATCH --get-user-env
 
-python3 ${PROTOCOL_ROOT}/bin/prepack_receptor.py $1
+python3 ${PROTOCOL_ROOT}/bin/prepack_receptor.py *.clean.pdb
