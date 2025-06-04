@@ -182,7 +182,10 @@ def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name, chec
 
     pep_residues = utility.vector1_unsigned_long()
     for r in range(complex_pose.chain_begin(2), complex_pose.chain_end(2) + 1):
-        pep_residues.append(r)
+        if not complex_pose.residue(r).is_protein(): # if any residue is not a protein, we cannot use it
+            return False # 2ORZ/043_2xs2_87_89_0001.pdb
+        else:
+            pep_residues.append(r)
     pep_pose = Pose()
     pep_pose.assign(complex_pose)
     core.pose.pdbslice(pep_pose, pep_residues)
