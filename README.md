@@ -51,7 +51,7 @@ The peptide can contain post-translational modifications, denoted by Rosetta sta
 A test run of PatchMAN can be performed on the 1ssh.pdb in the `test/` directory. Turning off receptor backbone minimization for testing purposes decreases runtime:
 
 ```
-python3 PatchMAN_protocol. -m false 1ssh.pdb -w test/ EGPPPAMPARPT
+python3 PatchMAN_protocol.py 1ssh.pdb -w test/ EGPPPAMPARPT
 ```
 
 ### Running parameters
