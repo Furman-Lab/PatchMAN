@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pyrosetta
 from dask_jobqueue import SLURMCluster
+from dask.distributed import LocalCluster
 from pyrosetta import *
 from dask.distributed import Client, WorkerPlugin
 
@@ -119,32 +120,55 @@ def get_cluster_args(list_of_inputs, nstruct):
     return tasks_per_job, memory_per_job
 
 
-def start_cluster(tasks_per_job, memory_per_job):
+def start_cluster(tasks_per_job, memory_per_job, use_local=False):
     """
-    Start a Dask cluster on the SLURM scheduler and return a client object.
+    Start a Dask cluster (SLURM or Local) and return a client object.
+
+    Args:
+        tasks_per_job: Number of tasks per job
+        memory_per_job: Memory allocation per job
+        use_local: If True, use LocalCluster; if False, use SLURMCluster (default)
     """
     # Dashboard will be available at ip of localhost, port: 8787
     print(f"Dashboard URL: http://{socket.gethostname()}:8787")
-    print(f"Submitting job array with {tasks_per_job} tasks per job, {memory_per_job} memory per job")
-    sys.stdout.flush()
-    sys.stderr.flush()
 
-    cluster = SLURMCluster(
-        cores=int(tasks_per_job),
-        processes=int(tasks_per_job),
-        memory=memory_per_job,
-        walltime=os.environ['FPD_TIME'],
-        interface="eth0",
-        local_directory="/tmp",  # Temporary directory for workers
-        name="fpd-${JOB_ID}",
-        job_extra_directives = [f"--array=1-{os.environ['FPD_NUM_JOBS']}"],
-        job_script_prologue=[
-            "JOB_ID=${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}",
-        ]
-    )
-    cluster.scale(jobs=1)
+    if use_local:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        
+        cpu_count = int(os.environ.get('SLURM_CPUS_PER_TASK', 2)) - 1 # leave one for coordination
+        memory_limit = parse_mem_string(os.environ['FPD_MEM_PER_TASK'], cpu_count)
+        print(f"Starting LocalCluster with {cpu_count} processes, {memory_limit} memory limit")
+        
+        cluster = LocalCluster(
+            n_workers=cpu_count,
+            processes=True,
+            memory_limit=memory_limit,
+            dashboard_address=':8787',
+            
+        )
+        cluster.scale(jobs=1)  # Scale to one job
+    else:
+        print(f"Submitting job array with {tasks_per_job} tasks per job, {memory_per_job} memory per job")
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+        cluster = SLURMCluster(
+            cores=int(tasks_per_job),
+            processes=int(tasks_per_job),
+            memory=memory_per_job,
+            walltime=os.environ['FPD_TIME'],
+            interface="eth0",
+            local_directory="/tmp",  # Temporary directory for workers
+            name="fpd-${JOB_ID}",
+            job_extra_directives=[f"--array=1-{os.environ['FPD_NUM_JOBS']}"],
+            job_script_prologue=[
+                "JOB_ID=${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}",
+            ]
+        )
+        cluster.scale(jobs=1)
+
     client = Client(cluster)
-    
     return client
 
 
@@ -229,7 +253,8 @@ def protocol(pose_path, index, output_path):
     sys.stdout.flush()
 
 
-def run_fpd_cluster(list_of_inputs, init_opts, min_rec_bb=False, output_path='.', nstruct=1, finished_decoys=None, native=None):
+def run_fpd_cluster(list_of_inputs, init_opts, min_rec_bb=False, output_path='.', nstruct=1,
+                    finished_decoys=None, native=None, use_local=False):
     """
     Initializes the cluster and its workers, generate the list of tasks to run.
     Then, combines the silent files and creates a score file.
@@ -243,7 +268,7 @@ def run_fpd_cluster(list_of_inputs, init_opts, min_rec_bb=False, output_path='.'
     task_args = create_task_list(list_of_inputs, nstruct, output_path, finished_decoys)
     
     # Run the cluster and the jobs
-    client = start_cluster(tasks_per_job, memory_per_job)
+    client = start_cluster(tasks_per_job, memory_per_job, use_local=use_local)
     client.register_plugin(PyRosettaFPDPlugin(init_opts, min_rec_bb, native))
     futures = client.map(lambda args: protocol(*args), task_args)
     client.gather(futures)
@@ -332,6 +357,7 @@ def main():
     parser.add_argument("-r", "--redundancy", action="store_true", help="Filter for template redundancy. Default: False")
     parser.add_argument("-c", "--cpu", type=int, help="Number of CPUs to use. Default: All available")
     parser.add_argument("-o", "--outdir", type=str, help="Output directory. Default: Current directory", default=os.getcwd())
+    parser.add_argument("--use_local", action="store_true", help="Use LocalCluster instead of SLURMCluster. Default: False")
     args = parser.parse_args()
 
     # Collect input files
@@ -358,7 +384,8 @@ def main():
     
     # Run FlexPepDock
     print('Running FlexPepDock...')
-    run_fpd_cluster(input_files, init_opts, args.min_rec_bb, args.outdir, int(nstruct), finished_decoys, args.native)
+    run_fpd_cluster(input_files, init_opts, args.min_rec_bb, args.outdir, int(nstruct), finished_decoys,
+                    args.native, args.use_local)
 
 
 if __name__ == "__main__":

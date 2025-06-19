@@ -2,7 +2,7 @@
 from bin.protocol_utils import *
 
 # Gather all the arguments needed for the protocol
-args = parse_args()
+args = parse_protocol_args()
 config = load_config('config.ini')
 os.chdir(args.work_dir)
 

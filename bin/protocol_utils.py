@@ -53,10 +53,10 @@ def load_config(config_file_path="config.ini"):
 	print(f"ADD_SBATCH={config_dict['ADD_SBATCH']}")
 
 	# check if sbatch command is available
-	try:
-		subprocess.run(["sbatch", "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-	except FileNotFoundError:
-		raise RuntimeError("sbatch command not found. Please make sure it is available in the PATH")
+#	try:
+#		subprocess.run(["sbatch", "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+#	except FileNotFoundError:
+#		raise RuntimeError("sbatch command not found. Please make sure it is available in the PATH")
 
 	return config_dict
 
@@ -137,7 +137,7 @@ def run_createPDS(pdb_list_file, output=None):
 		subprocess.run(' '.join(cmd), check=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, shell=True)
 
 
-def parse_args():
+def parse_protocol_args():
 	'''
 	Parse command line arguments and return the parsed arguments
 	return: Namespace object containing the parsed arguments
@@ -174,6 +174,7 @@ def parse_args():
 	                    help="Force rerunning FlexPepDock, even if there are already files in the directory")
 
 
+	parser.add_argument("--cpu", type=int, default=None, help="Number of CPU-s to use. Default: all available")
 	parser.add_argument("-p", "--steps", type=str,
 	                    help="Steps to run between (Default: 1-6, 1: split to motifs, 2: prepack receptor, 3: run MASTER, 4: extract templates,  5: FlexPepDock, 6: clustering and finalizing)")
 	parser.add_argument("-b", "--benchmark", type=str, default=None,
@@ -184,10 +185,13 @@ def parse_args():
 	
 	args = parser.parse_args()
 	
+	# get the number of cpu-s
+	if args.cpu is None:
+		args.cpu = os.cpu_count()
+	
 	# also validate working directory and create if it doesn't exist
 	try:
-		if not os.path.exists(args.work_dir):
-			os.makedirs(args.work_dir)
+		os.makedirs(args.work_dir, exist_ok=True)
 	except Exception as e:
 		raise ValueError(f"Working directory '{args.work_dir}' is not accessible and cannot be created: {e}")
 	# add full path to the environment variable
