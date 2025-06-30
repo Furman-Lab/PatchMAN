@@ -427,7 +427,7 @@ def keep_only_redundant_templates(input_files):
 # Decide on nstruct based on upper limit or user input
 def set_nstruct(n_templates, max_nstruct_per_decoy, max_nstruct_total=20000, args=None):
 	"""
-	User input always overwrites calcilation.
+	User input always overwrites calculation.
 	Otherwise, we do not want to refine more then 20000 decoys, but we also dont want to refine more than 10 decoys per input structure.
 	"""
 	if args and args.nstruct:
@@ -527,10 +527,13 @@ def main():
 	init_opts = create_init_opts(args)
 	
 	# Clean up existing output files before running FlexPepDock
-	clean_before_run(args.force_rerun)
+	if not args.use_local: # PyRosettaCluster writes directly into a silent file, so no need to clean up
+		clean_before_run(args.force_rerun)
 	
 	# If we did not want to force rerunning and there are some decoys already finished, we need to list them
 	finished_decoys = list_decoys_for_restarting() if not args.force_rerun else None
+	print(finished_decoys)
+	print(finished_decoys)
 	
 	# If args.native specified, check if it exists. Exit if not
 	if args.native and not Path(args.native).exists():
