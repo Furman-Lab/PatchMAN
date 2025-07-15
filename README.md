@@ -39,13 +39,17 @@ PatchMAN can be run with:
 micromamba activate ./patchman   # default the env is created inside the directory. 
 python3 PatchMAN_protocol.py <arguments> RECEPTOR PEPTIDE
 ```
+If you want to start a local dask cluster for parallelization, instead of a SLURM scheduler, run:
+```
+python3 PatchMAN_protocol.py <arguments> RECEPTOR PEPTIDE
+```
 
 where RECEPTOR is a PDB file and PEPTIDE is the peptide sequence to be docked.
 The peptide can contain post-translational modifications, denoted by Rosetta standards, e.g. `[SER:phosphorylated]`. The available PTMs can be listed with
 
 ```ls <env_path>/lib/python3.11/site-packages/pyrosetta/database/chemical/residue_type_sets/fa_standard/patches```
 
-:exclamation: Note that the protocol script is set up to use Slurm job scheduler. Using an other type of scheduler needs editing of the `config.ini` file and the `.sh`  and fpd.py files in the `bin/` directory. Unfortunately, we cannot help with that.
+:exclamation: The protocol is provided both runnable locally (PatchMAN_protocol_dask.py) and via a SLURM scheduler (PatchMAN_protocol.py). Running on other HPC computers would require changes of the scripts. Unfortuantely, we cannot help with that.
 
 #### Test run
 A test run of PatchMAN can be performed on the 1ssh.pdb in the `test/` directory. Turning off receptor backbone minimization for testing purposes decreases runtime:
