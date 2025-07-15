@@ -526,7 +526,7 @@ def main():
 	# For init Rosetta
 	init_opts = create_init_opts(args)
 	
-	# Clean up existing output files before running FlexPepDock
+	# Clean up existing output files before running FlexPepDockcd
 	if not args.use_local: # PyRosettaCluster writes directly into a silent file, so no need to clean up
 		clean_before_run(args.force_rerun)
 	
