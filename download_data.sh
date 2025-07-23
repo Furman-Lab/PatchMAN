@@ -28,4 +28,6 @@ curl -o "$DB_DIR/master_clean.tar.gz" -L "https://www.cs.huji.ac.il/~jvarga/mast
 echo "Extracting cleaned PDBs..."
 tar -xzf "$DB_DIR/master_clean.tar.gz" -C "$DB_DIR"
 
+rm "$DB_DIR/master_clean.tar.gz" "$DB_DIR/masterDB.tar.gz"
+
 echo "Downloads are finished!"
