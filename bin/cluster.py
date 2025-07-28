@@ -170,8 +170,14 @@ def extract_and_sort_score_file(score_file='score.sc', output_file="sorted.sc"):
     """
     # List of scores to extract
     scores_types = ['reweighted_sc', 'I_sc', 'rmsBB', 'rmsBB_if', 'description']
+    
+    # check if score_file starts with SEQUENCE, leave out the first line
+    f = open(score_file)
+    first = f.readline()
+    skiprows = 1 if first.startswith('SEQUENCE:') else 0
+    f.close()
 
-    scores = pd.read_csv(score_file, sep='\s+', header=0)
+    scores = pd.read_csv(score_file, sep='\s+', header=0, skiprows=skiprows, engine='python')
     scores = scores[~scores['SCORE:'].str.contains('SEQUENCE:', case=False, na=False)]
 
     # drop those rows where description=='description'
@@ -302,12 +308,13 @@ def run_finalize(only_cluster_centers_df):
     """
     This will write out the dataframes and copy the top 10 structures to the results directory.
     """
+    
     # Output dataframe similarly to previous runs for backward compatibility
     only_cluster_centers_df[["Decoy_ID", "Cluster_no", "Member_ID"]].to_csv('clustering/cluster_list',
                                                                             index=False, header=False, sep=' ')
-    only_cluster_centers_df.sort_values('reweighted_sc').head(10).to_csv(
+    only_cluster_centers_df.head(10).to_csv(
         'clustering/cluster_list_reweighted_sc_sorted', index=False, header=False, sep=' ')
-    only_cluster_centers_df.sort_values('I_sc').head(10).to_csv('clustering/cluster_list_reweighted_sc_sorted',
+    only_cluster_centers_df.sort_values('I_sc').head(10).to_csv('clustering/cluster_list_I_sc_sorted',
                                                                 index=False, header=False, sep=' ')
     
     # Create a df for the final 10 pdb-s
@@ -368,7 +375,7 @@ def main():
     print(os.getcwd())
     
     # First sort the scores and select and load top 1% (or other specified)
-    scores_sorted = extract_and_sort_score_file(output_file='sorted.sc')
+    scores_sorted = extract_and_sort_score_file(score_file=args.score_file, output_file='sorted.sc')
     tags = filter_and_select_top_structures(scores_sorted, tags_to_remove=args.tags_to_remove, topX=args.topX).description.tolist()
     all_poses = read_poses_from_silentfile(args.silent_file, tags)
     actual_radius = calculate_actual_radius(all_poses[0], args.radius)
