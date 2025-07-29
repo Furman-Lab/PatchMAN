@@ -45,7 +45,7 @@ class PyRosettaFPDPlugin(WorkerPlugin):
 		"""Helper method to create FPD mover"""
 		from pyrosetta.rosetta.protocols.rosetta_scripts import RosettaScriptsParser
 		
-		print(f"Creating FlexPepDock mover")
+		# print(f"Creating FlexPepDock mover")
 		
 		# FlexPepDock XML definition
 		xml = f"""
@@ -73,9 +73,10 @@ class PyRosettaFPDPlugin(WorkerPlugin):
 		if self.native_path:
 			native_pose = io.pose_from_file(self.native_path)
 			fpd_protocol.set_native_pose(native_pose)
-			print(f"Native pose set from {self.native_path}")
+			# print(f"Native pose set from {self.native_path}")
 		else:
-			print("No native pose provided, using the input as native.")
+			pass
+			# print("No native pose provided, using the input as native.")
 		
 		return fpd_protocol
 
@@ -361,7 +362,7 @@ def create_fpd_mover(min_rec_bb=False, native_path=None):
 	# Set the native pose if provided
 	if native_path:
 		native_pose = io.pose_from_file(native_path)
-		fpd_protocol.set_native_pose(native_pose.to_pose())
+		fpd_protocol.set_native_pose(pyrosetta.distributed.packed_pose.to_pose(native_pose))
 		print(f"Native pose set from {native_path}")
 	else:
 		print("No native pose provided, using the input as native.")
@@ -379,7 +380,7 @@ def protocol_local(pose, **kwargs):
 	import pyrosetta.distributed.tasks.rosetta_scripts as rosetta_scripts
 	from pyrosetta.rosetta.protocols.jd2 import get_string_real_pairs_from_current_job
 
-	print('Initializing protocol')
+	print(f'Running {pose.pdb_info().name()}')
 	fpd_protocol = create_fpd_mover(kwargs["min_rec_bb"], kwargs["native_path"])
 
 	# Load pose and run protocol
