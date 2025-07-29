@@ -167,7 +167,7 @@ def parse_protocol_args():
 	parser.add_argument("-a", "--native_pdb", type=Path, default=None,
 	                    help="Native PDB if exists. Needs to be exactly the same chains and lengths for both receptor and peptide")
 	parser.add_argument("-t", "--nstruct", type=int, default=None,
-	                    help="Number of structures to generate (Default: 1)")
+	                    help="Number of structures to generate (Default: adjust)")
 	parser.add_argument("-u", "--cluster_radius", type=str, default="2",
 	                    help="Cluster radius for clustering with Rosetta. This will be normalized by the length of the peptide. (Default: None)")
 	parser.add_argument("-r", "--force_rerun_fpd", action="store_true",
@@ -327,6 +327,45 @@ def validate_peptide_sequence(peptide_sequence):
         raise ValueError(f"Not a peptide sequence: '{peptide_sequence}'")
     return peptide_sequence
 
+
+def check_dask_tasks(success, step_number):
+	"""
+	Check if the Dask tasks were successful and print the result.
+
+	Args:
+	success: bool, whether the Dask tasks were successful.
+	step_number: int, the step number of the protocol.
+
+	Returns:
+	None
+	"""
+	if success:
+		print(f"Step {step_number} completed successfully")
+	else:
+		raise RuntimeError(f"Step {step_number} failed. Check the logs for details.")
+	
+		
+def check_subprocess_result(result, step_number):
+	"""
+	Check the result of a subprocess run and print the output or raise an error.
+
+	Args:
+	result: CompletedProcess, the result of the subprocess run.
+	step_number: int, the step number of the protocol.
+
+	Returns:
+	None
+
+	Raises:
+	subprocess.CalledProcessError: If the subprocess did not complete successfully.
+	"""
+	if result.returncode != 0:
+		print(f"Step {step_number} failed with return code {result.returncode}")
+		print(f"STDOUT: {result.stdout}")
+		print(f"STDERR: {result.stderr}")
+		raise subprocess.CalledProcessError(result.returncode, result.args)
+	else:
+		print(f"Step {step_number} completed successfully")
 
 
 def prepare_benchmark_mode(args, receptor_base):
