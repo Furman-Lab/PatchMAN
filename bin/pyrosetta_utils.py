@@ -1,6 +1,7 @@
 from pyrosetta import *
 from pyrosetta.rosetta import *
 import numpy as np
+from pyrosetta.rosetta.core.select.residue_selector import ResidueIndexSelector, NeighborhoodResidueSelector
 
 # This function currently returns most of the protein as surface, it is not clear why.
 def create_layer_selector():
@@ -19,7 +20,7 @@ def create_index_selector(res_nums):
 
 
 def create_neighborhood_selector(cutoff, include_focus):
-    neighborhood_selector = rosetta.core.select.residue_selector.NeighborhoodResidueSelector()
+    neighborhood_selector = NeighborhoodResidueSelector()
     neighborhood_selector.set_include_focus_in_subset(include_focus)
     neighborhood_selector.set_distance(cutoff)
     return neighborhood_selector
@@ -32,6 +33,28 @@ def two_atoms_distance(complex_pose, res1, atom1, res2, atom2):
     x2, y2, z2 = coord2
     distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
     return distance
+
+
+def convert_rosetta_numbers_to_pdb(pdbinf, rosetta_list):
+	"""
+	Function to create a list of tuples with the chain and the residue number
+	:param pdbinf: pdb_info object for the pose
+	:param rosetta_list: list with rosetta numbering
+	:return: list of tuples with PDB numbering
+	"""
+	pdb_list = [str(pdbinf.chain(int(resn))) + str(pdbinf.number(int(resn))) for resn in rosetta_list]
+	return pdb_list
+
+
+def convert_pdb_numbers_to_rosetta(pdbinf, pdb_list):
+	"""
+	Function to create a list of tuples with the chain and the residue number
+	:param pdbinf: pdb_info object for the pose
+	:param pdb_list: list with PDB numbering (A12, B34, etc.)
+	:return:: list of tuples with rosetta numbering
+	"""
+	rosetta_list = [pdbinf.pdb2pose(resn[0], int(resn[1:])) for resn in pdb_list]
+	return rosetta_list
 
 
 def extract_check_list_from_file(filepath):
@@ -120,6 +143,26 @@ def extract_check_list_from_file(filepath):
     return residues
 
 
+def convert_residue_format(residue_list):
+    """
+    Convert residue format from A10,A12 to 10A,12A
+
+    Args:
+        residue_string: String in format "A10,A12,B5" etc.
+
+    Returns:
+        String in format "10A,12A,5B" etc.
+    """
+    converted_list = []
+    
+    for res in residue_list:
+        chain = res[0]
+        number = res[1:]
+        converted_list.append(f"{number}{chain}")
+    
+    return converted_list
+
+
 def parse_mask_and_focus(args):
     """Parse mask and focus residues
     :param args: command line arguments
@@ -173,18 +216,122 @@ def load_and_clean_pdb(pdb_file, return_name=False):
     else:
         return pose
 
+def get_atom_coordinates(pose, res_num, atom_name):
+	"""
+	Get the coordinates of a specific atom in a residue.
 
-def convert_rosetta_numbering_to_pdb_numbering(pdbinf, resn_list=None):
-    """
-    Function to convert the numbering of the residues from Rosetta numbering to PDB numbering
-    :param pose: input pose
-    :param resn_list: list of residue numbers in Rosetta numbering
-    :return: list of residue numbers in PDB numbering
-    """
-    if not resn_list:
-        resn_list = [x for x in range(1, pdbinf.nres() + 1)]
-    pdb_number_resn_list = []
-    
-    for resn in resn_list:
-        pdb_number_resn_list.append(str(pdbinf.chain(int(resn))) + str(pdbinf.number(int(resn))))
-    return pdb_number_resn_list
+	Args:
+		pose: PyRosetta pose object
+		res_num: Residue number (1-based index)
+		atom_name: Name of the atom (e.g., 'CA', 'CB')
+
+	Returns:
+		Tuple of (x, y, z) coordinates of the atom
+	"""
+	residue = pose.residue(res_num)
+	
+	if residue.name3() == "GLY" and atom_name == "CB":
+		# Glycine does not have a CB atom, use CA instead
+		atom_name = "CA"
+	
+	return residue.atom(atom_name).xyz()
+
+
+def create_focus_from_hotspots(pose, residue_nums, cb_dist=8):
+	"""
+	PyRosetta version matching the original BioPandas logic for multiple target residues.
+
+	Selects residues where:
+	1. CB distance to ANY target residue <= cb_dist (8Å)
+	2. CB distance <= CA distance to that same target residue
+
+	Args:
+	   pose: PyRosetta pose object
+	   residue_nums: List of target residue numbers (pose numbering) or single residue number
+	   cb_dist: Distance cutoff in Angstroms (default 8.0)
+
+	Returns:
+	   List of residue numbers that meet the criteria
+	"""
+	if isinstance(residue_nums, (int, str)):
+		residue_nums = [residue_nums]
+	
+	target_pose_indices = convert_pdb_numbers_to_rosetta(pose.pdb_info(), residue_nums)
+	
+	# Convert list to comma-separated string for ResidueIndexSelector
+	residue_string = ','.join(str(idx) for idx in target_pose_indices)
+	
+	# Create single selector for all target residues
+	target_selector = ResidueIndexSelector(residue_string)
+	
+	# Create neighborhood selector around the target residues
+	neighborhood_selector = NeighborhoodResidueSelector()
+	neighborhood_selector.set_focus_selector(target_selector)
+	neighborhood_selector.set_distance(cb_dist)
+	neighborhood_selector.set_include_focus_in_subset(True)  # Include the target residues themselves
+	
+	# Apply the selector to get initial neighborhood
+	selected_residues = neighborhood_selector.apply(pose)
+	
+	# Convert to list of residue indices (initial selection)
+	neighborhood_indices = []
+	for i in range(1, pose.total_residue() + 1):
+		if selected_residues[i]:
+			neighborhood_indices.append(i)
+	
+	print(f"Initial neighborhood selection: {len(neighborhood_indices)} residues within {cb_dist}Å")
+	
+	new_focus_residues = []
+	
+	# Iterate through neighborhood residues only
+	for i in neighborhood_indices:
+		current_residue = pose.residue(i)
+		
+		try:
+			# Get CB coordinates (or CA for glycine)
+			current_cb_coords = get_atom_coordinates(pose, i, "CB")
+			
+			# Get CA coordinates
+			current_ca_coords = get_atom_coordinates(pose, i, "CA")
+			
+			# Check against each target residue
+			passes_criteria = False
+			
+			for target_num in target_pose_indices:
+				target_residue = pose.residue(target_num)
+				
+				target_cb_coords = get_atom_coordinates(pose, target_num, "CB")
+					
+				# Get target residue's CA coordinates
+				target_ca_coords = get_atom_coordinates(pose, target_num, "CA")
+				
+				# Calculate distances to this target residue
+				cb_distance = current_cb_coords.distance(target_cb_coords)
+				ca_distance = current_ca_coords.distance(target_ca_coords)
+				
+				# print(f"Residue {i} - {target_num} (CB: {cb_distance}, CA: {ca_distance}) ") # For debugging purposes
+				
+				# Apply the same logic as original: CB distance <= CA distance AND CB distance <= cutoff
+				if cb_distance <= ca_distance and cb_distance <= cb_dist:
+					passes_criteria = True
+					break  # If it passes for any target, include it
+			
+			if passes_criteria:
+				new_focus_residues.append(i)
+		
+		except Exception as e:
+			# Skip residues where we can't get the required atoms
+			print(f"Warning: Could not process residue {i}: {e}")
+			continue
+	
+	# Add target residues to the array
+	for target_idx in target_pose_indices:
+		if target_idx not in new_focus_residues:
+			new_focus_residues.append(target_idx)
+	
+	# Sort the final list
+	new_focus_residues.sort()
+	
+	# print(f"After CB-CA filtering: {len(new_focus_residues)} residues meet criteria")
+	print("New focus residues:", new_focus_residues)
+	return new_focus_residues

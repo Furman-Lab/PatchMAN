@@ -14,17 +14,6 @@ MAX_HELIX_LEN = 11
 RATIO_ALLOWED_MASKED_RESIDUES = 0.3  # added for masking
 
 
-def create_motif_with_chains(pdbinf, motif):
-	"""
-	Function to create a list of tuples with the chain and the residue number
-	:param pdbinf: pdb_info object for the pose
-	:param motif: motif with rosetta numbering
-	:return: motif as a tuple with chain and residue number
-	"""
-	motif_with_chains = [str(pdbinf.chain(int(resn))) + str(pdbinf.number(int(resn))) for resn in motif]
-	return motif_with_chains
-
-
 def check_mask_on_motif(pdbinf, motif, mask_res, debug=False):
 	"""
 	Function to check if the motif contains masked residues over a certain threshold
@@ -35,7 +24,7 @@ def check_mask_on_motif(pdbinf, motif, mask_res, debug=False):
 	motif_with_chains = []
 	motif_length = len(motif)
 	min_unmasked_length = motif_length * (1 - RATIO_ALLOWED_MASKED_RESIDUES)
-	motif_pdb = utils.convert_rosetta_numbering_to_pdb_numbering(pdbinf, motif)
+	motif_pdb = utils.convert_rosetta_numbers_to_pdb(pdbinf, motif)
 
 	# get the residues that are not in the mask
 	unmasked_motif = list(set(motif_pdb) - set(mask_res))
@@ -48,7 +37,7 @@ def check_mask_on_motif(pdbinf, motif, mask_res, debug=False):
 	# break the loop if too many residues are masked
 	if unmasked_length > min_unmasked_length:
 		motif_not_masked = True
-		motif_with_chains = create_motif_with_chains(pdbinf, motif)
+		motif_with_chains = utils.convert_rosetta_numbers_to_pdb(pdbinf, motif)
 	else:
 		motif_not_masked = False
 
@@ -128,7 +117,7 @@ def normal_mode(namespace, debug=False):
 				continue
 			# create motif around the center residue
 			motif, _ = create_motif_around_center(i, namespace, debug=debug)
-			motif_with_chains = create_motif_with_chains(namespace.pdbinf, motif)
+			motif_with_chains = utils.convert_rosetta_numbers_to_pdb(namespace.pdbinf, motif)
 
 			finalize_motif(motif, motif_with_chains, namespace, i)
 
@@ -140,6 +129,10 @@ def focus_run(check_list, namespace, hotspot=False, debug=False):
 
 	:return: list of extracted motifs
 	"""
+	
+	if hotspot: # need to extend to a focus area
+		check_list_ind = utils.create_focus_from_hotspots(namespace.pose, check_list, cb_dist=8)
+	
 	for i, res in enumerate(namespace.selected_res, 1):
 		if res:
 			# skip every second residue to be considered as patch center (to prevent too overlapping patches)
@@ -148,7 +141,7 @@ def focus_run(check_list, namespace, hotspot=False, debug=False):
 
 			# create motif around the center residue
 			motif, _ = create_motif_around_center(i, namespace, debug=debug)
-			motif_with_chains = create_motif_with_chains(namespace.pdbinf, motif)
+			motif_with_chains = utils.convert_rosetta_numbers_to_pdb(namespace.pdbinf, motif)
 
 			if len(motif_with_chains) > 0:
 				common_residues = set(motif_with_chains).intersection(set(check_list))
@@ -161,7 +154,6 @@ def focus_run(check_list, namespace, hotspot=False, debug=False):
 						print('WARNING: Motif does not contain at least 5 residues from the focus list, skipping')
 						print('motif residues:', set(motif_with_chains))
 						print('focus residue list:', set(check_list))
-
 
 
 def mask_run(check_list, namespace, debug=False):
@@ -317,7 +309,7 @@ def split_to_motifs():
 	parser.add_argument('-s', '--mask_focus', help='PDB file, with residues that should or should not be on the interface',
 	                    required=False, default=None)
 	parser.add_argument('-o', '--hotspot_mode',
-	                    help='Only with focus mode. If True, all residues in the focus patch will be used as a center of patch.',
+	                    help='Only with focus mode. If True, the provided residues will be the base to construct a focus area.',
 	                    required=False, action='store_true')
 	parser.add_argument('-v', '--verbose', help='For debugging purposes', required=False, action='store_true',
 	                    default=False)
@@ -325,7 +317,6 @@ def split_to_motifs():
 
 	# load receptor pose
 	pose, prot_name = utils.load_and_clean_pdb(args.input, return_name=True)
-	print(args)
 
 	# process inputs for mask and focus residues
 	check_list = utils.parse_mask_and_focus(args)
