@@ -379,6 +379,9 @@ def prepare_benchmark_mode(args, receptor_base):
 	benchmark_file: str, path to the benchmark file.
 	"""
 	if args.benchmark:
+		found_entry = False
+		args.master_args = f'{os.environ["PROTOCOL_ROOT"]}/db_list_30nonred'
+		
 		# Read the benchmark file and extract relevant lines
 		with open(args.benchmark, 'r') as file:
 			for line in file:
@@ -387,21 +390,22 @@ def prepare_benchmark_mode(args, receptor_base):
 					# Split the line by '|' and write to benchmark_file
 					with open('benchmark_file', 'w') as outfile:
 						outfile.write(line.replace('|', '\n'))
+					found_entry = True
 					break  # Assuming only the first match is needed, similar to grep -m 1
-	
-		# Filter out entries from the db_list_30nonred that are listed in benchmark_file
-		with open(f'{os.environ["PROTOCOL_ROOT"]}/db_list_30nonred', 'r') as db_file, \
-				open('benchmark_file', 'r') as benchmark_file, \
-				open('db_list_30nonred', 'w') as output_file:
-			benchmark_entries = set(benchmark_file.read().splitlines())
-			for db_line in db_file:
-				# Check if any line from db_list_30nonred is not in the benchmark entries
-				if db_line.strip() not in benchmark_entries:
-					output_file.write(db_line)
 		
-		# Adjust master_args and fpd_args
-		args.master_args = 'db_list_30nonred'
-		args.fpd_args.append(" -b")
-	else:
-		args.master_args = f'{os.environ["PROTOCOL_ROOT"]}/db_list_30nonred'
+		if found_entry:
+			# Filter out entries from the db_list_30nonred that are listed in benchmark_file
+			with open(f'{os.environ["PROTOCOL_ROOT"]}/db_list_30nonred', 'r') as db_file, \
+					open('benchmark_file', 'r') as benchmark_file, \
+					open('db_list_30nonred', 'w') as output_file:
+				benchmark_entries = set(benchmark_file.read().splitlines())
+				for db_line in db_file:
+					# Check if any line from db_list_30nonred is not in the benchmark entries
+					if db_line.strip() not in benchmark_entries:
+						output_file.write(db_line)
+			
+			# Adjust master_args and fpd_args
+			args.master_args = 'db_list_30nonred'
+			args.fpd_args.append("-b")
+	
 	return args

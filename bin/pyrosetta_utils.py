@@ -332,9 +332,7 @@ def create_focus_from_hotspots(pose, residue_nums, cb_dist=8):
 	# print(f"After CB-CA filtering: {len(new_focus_residues)} residues meet criteria")
 	print("New focus residues:", new_focus_residues)
 	
-	# save the new focus residues to a PDB file
-	
-	
+	# save the new focus residues to a PDB file for the extraction step
 	new_focus_residues_rosetta = utility.vector1_unsigned_long()
 	for res in new_focus_residues:
 		new_focus_residues_rosetta.append(res)

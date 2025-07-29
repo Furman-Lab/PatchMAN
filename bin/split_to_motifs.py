@@ -129,9 +129,9 @@ def focus_run(check_list, namespace, hotspot=False, debug=False):
 
 	:return: list of extracted motifs
 	"""
-	
 	if hotspot: # need to extend to a focus area
 		check_list_ind = utils.create_focus_from_hotspots(namespace.pose, check_list, cb_dist=8)
+		check_list = utils.convert_rosetta_numbers_to_pdb(namespace.pdbinf, check_list_ind)
 	
 	for i, res in enumerate(namespace.selected_res, 1):
 		if res:
