@@ -33,9 +33,10 @@ def main():
 	pdb_list_file = "motif_list"
 	if 1 in args.steps_range:
 		print("Step 1: Splitting to motifs...")
-		subprocess.run(['python3', f"{os.environ['BIN_DIR']}/split_to_motifs.py", "-i", receptor,
+		results_split_to_motifs = subprocess.run(['python3', f"{os.environ['BIN_DIR']}/split_to_motifs.py", "-i", receptor,
 						*args.focus_mask_args.split()], check=True)
-		print("Step 1 completed successfully")
+		
+		check_subprocess_result(results_split_to_motifs, 1)
 
 	# Calculate n_searches using motif_list
 	n_searches = sum(1 for line in open(pdb_list_file))
@@ -47,24 +48,16 @@ def main():
 
 		clean_pdbs = glob.glob("*.clean.pdb")
 		if clean_pdbs:
-			result = subprocess.run(['python3', f"{os.environ['BIN_DIR']}/prepack_receptor.py", clean_pdbs[0]],
+			result_prepack = subprocess.run(['python3', f"{os.environ['BIN_DIR']}/prepack_receptor.py", clean_pdbs[0]],
 									capture_output=True, text=True)
-			if result.returncode != 0:
-				print(f"prepack_receptor.py failed with return code {result.returncode}")
-				print(f"STDOUT: {result.stdout}")
-				print(f"STDERR: {result.stderr}")
-				raise subprocess.CalledProcessError(result.returncode, result.args)
+			
+			check_subprocess_result(result_prepack, 2)
 		else:
 			raise FileNotFoundError(
 				"No .clean.pdb files found in the working directory. Probably there was a problem with generating them.")
 
-		print("Step 2 completed successfully")
-		prepack_success = True
-	else:
-		prepack_success = True  # Skip dependency
-
 	# Step 3: Run MASTER
-	if 3 in args.steps_range and prepack_success:
+	if 3 in args.steps_range:
 		print("Step 3: Running MASTER search...")
 		cluster = setup_cluster(n_searches, args.cpu)
 
@@ -75,12 +68,10 @@ def main():
 		master_success = run_dask_tasks(
 			cluster, run_master_task, master_task_args, "master_search"
 		)
-		print("Step 3 completed")
-	else:
-		master_success = True  # Skip or previous step failed
+		check_dask_tasks(master_success, 3)
 
 	# Step 4: Extract templates
-	if 4 in args.steps_range and master_success:
+	if 4 in args.steps_range:
 		print("Step 4: Extracting templates...")
 		cluster = setup_cluster(n_searches, args.cpu)
 
@@ -96,9 +87,8 @@ def main():
 		extract_success = run_dask_tasks(
 			cluster, extract_templates_task, extract_task_args, "template_extraction"
 		)
-		print("Step 4 completed")
-	else:
-		extract_success = True  # Skip or previous step failed
+		
+		check_dask_tasks(extract_success, 4)
 
 	# Clean up Dask cluster before Step 5 to free up resources
 	if cluster:
@@ -106,7 +96,7 @@ def main():
 		print("Dask cluster closed")
 
 	# Step 5: FlexPepDock (FPD) - Run directly, no Slurm submission
-	if 5 in args.steps_range and extract_success:
+	if 5 in args.steps_range:
 		print("Step 5: Running FlexPepDock...")
 		print(f"FPD called with arguments: {' '.join(args.fpd_args)}")
 
@@ -114,27 +104,20 @@ def main():
 		fpd_cmd = ['python3', f"{os.environ['PROTOCOL_ROOT']}/bin/fpd.py"] + args.fpd_args
 
 		# Filter out warnings like the original script
-		fpd_process = subprocess.Popen(' '.join(fpd_cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-									   universal_newlines=True, bufsize=1, shell=True)
-
-		# Filter output to remove warnings (like the original grep -vi WARNING)
 		for line in fpd_process.stdout:
 			if 'WARNING' not in line.upper():
 				print(line.rstrip())
-
-		fpd_process.wait()
-
-		if fpd_process.returncode == 0:
-			print("Step 5 completed successfully")
-			fpd_success = True
+		
+		# Then check the result at the end
+		fpd_success = fpd_process.wait()
+		if fpd_success != 0:
+			print(f"Step {step_number} failed with return code {return_code}")
+			raise subprocess.CalledProcessError(return_code, fpd_process.args)
 		else:
-			print(f"Step 5 failed with return code {fpd_process.returncode}")
-			fpd_success = False
-	else:
-		fpd_success = True  # Skip or previous step failed
+			print(f"Step {step_number} completed successfully")
 
 	# Step 6: Clustering & Finalizing - Run directly, no Slurm submission
-	if 6 in args.steps_range and fpd_success:
+	if 6 in args.steps_range:
 		print("Step 6: Clustering and finalizing...")
 
 		# Create clustering directory (equivalent to mkdir -p clustering/)
@@ -145,17 +128,8 @@ def main():
 
 		with open("clustering/clog", "w") as clog_file:
 			cluster_result = subprocess.run(cluster_cmd, stdout=clog_file, stderr=subprocess.STDOUT, text=True)
-
-		if cluster_result.returncode == 0:
-			print("Step 6 completed successfully")
-			print("Clustering log written to clustering/clog")
-			clustering_success = True
-		else:
-			print(f"Step 6 failed with return code {cluster_result.returncode}")
-			print("Check clustering/clog for error details")
-			clustering_success = False
-	else:
-		clustering_success = True  # Skip or previous step failed
+			
+			check_subprocess_result(result_prepack, 2)
 
 	# Print summary
 	print(f'\nCompleted processing of receptor {receptor_base} with peptide: {args.peptide_sequence}')
