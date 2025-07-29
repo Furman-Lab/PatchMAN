@@ -103,23 +103,27 @@ def main():
 	if 5 in args.steps_range:
 		print("Step 5: Running FlexPepDock...")
 		print(f"FPD called with arguments: {' '.join(args.fpd_args)}")
-
+		
 		# Run FlexPepDock Python script directly (using PROTOCOL_ROOT path like original)
-		fpd_cmd = ['python3', f"{os.environ['PROTOCOL_ROOT']}/bin/fpd.py"] + args.fpd_args
-
-		# Filter out warnings like the original script
+		fpd_cmd = ' '.join(['python3', f"{os.environ['PROTOCOL_ROOT']}/bin/fpd.py"] + args.fpd_args)
+		
+		# Create the process
+		fpd_process = subprocess.Popen(fpd_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+		                               universal_newlines=True, bufsize=1, shell=True)
+		
+		# Filter out warnings
 		for line in fpd_process.stdout:
 			if 'WARNING' not in line.upper():
 				print(line.rstrip())
 		
-		# Then check the result at the end
-		fpd_success = fpd_process.wait()
-		if fpd_success != 0:
-			print(f"Step {step_number} failed with return code {return_code}")
-			raise subprocess.CalledProcessError(return_code, fpd_process.args)
+		# Check the result at the end
+		return_code = fpd_process.wait()
+		if return_code != 0:
+			print(f"Step FPD failed with return code {return_code}")
+			raise subprocess.CalledProcessError(return_code, fpd_cmd)
 		else:
-			print(f"Step {step_number} completed successfully")
-
+			print(f"Step FPD completed successfully")
+		
 	# Step 6: Clustering & Finalizing - Run directly, no Slurm submission
 	if 6 in args.steps_range:
 		print("Step 6: Clustering and finalizing...")

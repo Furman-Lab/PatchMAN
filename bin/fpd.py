@@ -361,7 +361,7 @@ def create_fpd_mover(min_rec_bb=False, native_path=None):
 	# Set the native pose if provided
 	if native_path:
 		native_pose = io.pose_from_file(native_path)
-		fpd_protocol.set_native_pose(native_pose)
+		fpd_protocol.set_native_pose(native_pose.to_pose())
 		print(f"Native pose set from {native_path}")
 	else:
 		print("No native pose provided, using the input as native.")
@@ -532,8 +532,6 @@ def main():
 	
 	# If we did not want to force rerunning and there are some decoys already finished, we need to list them
 	finished_decoys = list_decoys_for_restarting() if not args.force_rerun else None
-	print(finished_decoys)
-	print(finished_decoys)
 	
 	# If args.native specified, check if it exists. Exit if not
 	if args.native and not Path(args.native).exists():
