@@ -329,9 +329,20 @@ def create_focus_from_hotspots(pose, residue_nums, cb_dist=8):
 		if target_idx not in new_focus_residues:
 			new_focus_residues.append(target_idx)
 	
-	# Sort the final list
-	new_focus_residues.sort()
-	
 	# print(f"After CB-CA filtering: {len(new_focus_residues)} residues meet criteria")
 	print("New focus residues:", new_focus_residues)
+	
+	# save the new focus residues to a PDB file
+	
+	
+	new_focus_residues_rosetta = utility.vector1_unsigned_long()
+	for res in new_focus_residues:
+		new_focus_residues_rosetta.append(res)
+	
+	new_focus_pose = Pose()
+	new_focus_pose.assign(pose)
+	core.pose.pdbslice(new_focus_pose, new_focus_residues_rosetta)
+	new_focus_pose.dump_pdb('focus_from_hotspots.pdb') # this will add TER-s, but it doesnt matter later
+	
 	return new_focus_residues
+	

@@ -251,7 +251,7 @@ def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name, chec
                 rec_int_residues = core.select.get_residues_from_subset(rec_int_selector.apply(complex_pose))
                 rec_int = list(map(str, rec_int_residues))
 
-                rec_int_pdb = utils.convert_rosetta_numbering_to_pdb_numbering(complex_pose.pdb_info(), rec_int)
+                rec_int_pdb = utils.convert_rosetta_numbers_to_pdb(complex_pose.pdb_info(), rec_int)
 
                 # count the number of overlapping residues between the receptor interface residues and the focus residues
                 overlap = set(rec_int_pdb).intersection(set(check_list))

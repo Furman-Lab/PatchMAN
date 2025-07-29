@@ -37,6 +37,10 @@ def main():
 						*args.focus_mask_args.split()], check=True)
 		
 		check_subprocess_result(results_split_to_motifs, 1)
+	
+	# in hotspot mode, Step 1 also created a new .pdb called focus_from_hotspots.pdb - this needs to be changed for the extraction step
+	if args.hotspot_mode:
+		args.focus_mask_args = "-o -s focus_from_hotspots.pdb"
 
 	# Calculate n_searches using motif_list
 	n_searches = sum(1 for line in open(pdb_list_file))

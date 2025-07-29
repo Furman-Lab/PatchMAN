@@ -30,6 +30,10 @@ if 1 in args.steps_range:
     subprocess.run(['python3', f"{os.environ['BIN_DIR']}/split_to_motifs.py", "-i", receptor,
                     *args.focus_mask_args.split()], check=True)
 
+# in hotspot mode, Step 1 also created a new .pdb called focus_from_hotspots.pdb - this needs to be changed for the extraction step
+if args.hotspot_mode:
+	args.focus_mask_args = "-o -s focus_from_hotspots.pdb"
+
 # Calculate n_searches using motif_list
 n_searches = sum(1 for line in open(pdb_list_file))
 print(f"Number of searches: {n_searches}")
