@@ -3,7 +3,6 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
 #SBATCH --nice=8000
-#SBATCH	--time=14-00:00:00
 #SBATCH	--kill-on-invalid-dep=yes
 #SBATCH	--get-user-env
 #SBATCH --job-name=fpd
