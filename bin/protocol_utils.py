@@ -378,9 +378,11 @@ def prepare_benchmark_mode(args, receptor_base):
 	Returns:
 	benchmark_file: str, path to the benchmark file.
 	"""
+	# default
+	args.master_args = f'{os.environ["PROTOCOL_ROOT"]}/db_list_30nonred'
+	
 	if args.benchmark:
 		found_entry = False
-		args.master_args = f'{os.environ["PROTOCOL_ROOT"]}/db_list_30nonred'
 		
 		# Read the benchmark file and extract relevant lines
 		with open(args.benchmark, 'r') as file:
