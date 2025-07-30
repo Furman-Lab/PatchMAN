@@ -137,7 +137,7 @@ def main():
 		with open("clustering/clog", "w") as clog_file:
 			cluster_result = subprocess.run(cluster_cmd, stdout=clog_file, stderr=subprocess.STDOUT, text=True)
 			
-			check_subprocess_result(result_prepack, 2)
+			check_subprocess_result(cluster_result, 2)
 
 	# Print summary
 	print(f'\nCompleted processing of receptor {receptor_base} with peptide: {args.peptide_sequence}')

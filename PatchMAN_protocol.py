@@ -75,7 +75,7 @@ if 5 in args.steps_range:
         script=f"{os.environ['BIN_DIR']}/fpd.sh",
         args=args.fpd_args,
         dependency=f'afterany:{extract_templates_jid}',
-        slurm_opts=[f"--chdir={os.getcwd()}", config['ADD_SBATCH']]
+        slurm_opts=[f"--chdir={os.getcwd()}", f"--time {os.environ['FPD_TIME']}", config['ADD_SBATCH']]
     )
 else:
     fpd_jid = -1

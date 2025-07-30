@@ -187,7 +187,7 @@ def parse_protocol_args():
 	
 	# get the number of cpu-s
 	if args.cpu is None:
-		args.cpu = os.cpu_count()
+		args.cpu = len(os.sched_getaffinity(0))
 	
 	# also validate working directory and create if it doesn't exist
 	try:
