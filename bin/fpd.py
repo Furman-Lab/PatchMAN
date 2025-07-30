@@ -114,7 +114,7 @@ def get_cluster_args(list_of_inputs, nstruct):
 
 def start_cluster_slurm(tasks_per_job, memory_per_job):
 	"""
-	Start a Dask cluster (SLURM or Local) and return a client object.
+	Start a SLURM Dask cluster and return a client object.
 
 	Args:
 		tasks_per_job: Number of tasks per job
@@ -132,7 +132,6 @@ def start_cluster_slurm(tasks_per_job, memory_per_job):
 		processes=int(tasks_per_job),
 		memory=memory_per_job,
 		walltime=os.environ['FPD_TIME'],
-		interface="eth0",
 		local_directory="/tmp",  # Temporary directory for workers
 		name="fpd-${JOB_ID}",
 		job_extra_directives=[f"--array=1-{os.environ['FPD_NUM_JOBS']}"],
