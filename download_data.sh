@@ -22,15 +22,13 @@ mkdir -p "$DB_DIR"
 echo "Downloading MASTER database. This may take a while..."
 MASTERDB="$DB_DIR/masterDB/"
 mkdir -p $MASTERDB
-#wget --continue --timeout=0 --tries=10 --retry-connrefused --waitretry=5  \
-#--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" -O "$DB_DIR/masterDB.tar.gz" $(hf_url master_search.tar.gz)
-#echo "Extracting MASTER search database..."
-#tar -xzf "$DB_DIR/masterDB.tar.gz" -C $DB_DIR
-#rm "$DB_DIR/masterDB.tar.gz" -f
+wget --continue --timeout=0 --tries=10 --retry-connrefused --waitretry=5  \
+--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" -O "$DB_DIR/masterDB.tar.gz" $(hf_url master_search.tar.gz)
 
-rsync -varz grigoryanlab.org::masterDB/ $DB_DIR/masterDB
+echo "Extracting MASTER search database..."
+tar -xzf "$DB_DIR/masterDB.tar.gz" -C $DB_DIR
 find "$(realpath "$DB_DIR/masterDB/")" -name '*pds' > db_list_30nonred # Create list file with full paths
-
+rm "$DB_DIR/masterDB.tar.gz" -f
 
 # Download cleaned PDB files for Master
 echo "Downloading and extracting cleaned PDBs for MASTER search. This may take a while..."
