@@ -19,6 +19,9 @@ dependencies:
   - decorator
   - scipy
   - scikit-learn
+  - matplotlib
+  - pymol-open-source
+  - glew
 
 # Optional/Development dependencies
 # Uncomment the following lines to include Jupyter and development tools
