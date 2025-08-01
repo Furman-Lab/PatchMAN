@@ -232,6 +232,9 @@ def parse_protocol_args():
 		args.fpd_args.append(f"-a {args.native_pdb}")
 	if args.force_rerun_fpd:
 		args.fpd_args.append(f"-f ")
+	
+	# add also max cpu for FPD
+	args.fpd_args.append(f"-c {args.cpu}")
 	return args
 
 

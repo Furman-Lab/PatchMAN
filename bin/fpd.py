@@ -297,13 +297,15 @@ def create_tasks_local(list_of_inputs, dict_of_options, nstruct, min_rec_bb, nat
 	
 	
 def run_fpd_cluster_local(list_of_inputs, init_opts, min_rec_bb=False, output_path='.',
-                          nstruct=1, finished_decoys=None, native_path=None):
+                          nstruct=1, finished_decoys=None, native_path=None, cpu=None):
 	import psutil
 	from pyrosetta.distributed.cluster import PyRosettaCluster
 	
-	num_threads = len(psutil.Process().cpu_affinity())
+	cpu = cpu if cpu else len(psutil.Process().cpu_affinity())
 	
-	init_opts = init_opts + f" -multithreading:total_threads {num_threads}" + " -out:level 300"
+	print(f"Running FlexPepDock on {len(list_of_inputs)} inputs with {cpu} threads")
+	
+	init_opts = init_opts + f" -multithreading:total_threads {cpu}" + " -out:level 300"
 	
 	client = Client()
 	
@@ -312,6 +314,7 @@ def run_fpd_cluster_local(list_of_inputs, init_opts, min_rec_bb=False, output_pa
 		client=client,
 		scratch_dir=output_path,
 		output_path=output_path,
+		cores=cpu,
 		nstruct=1,	# here it is only one, as otherwise the decoy numbering cannot be tracked
 		sha1=None,	# to prevent an error with git
 		scorefile_name="score.json", # with dryrun, this wont be generated
@@ -542,7 +545,7 @@ def main():
 	print('Running FlexPepDock...')
 	if args.use_local:
 		run_fpd_cluster_local(input_files, init_opts, args.min_rec_bb, args.outdir, nstruct,
-							  finished_decoys, args.native)
+							  finished_decoys, args.native, args.cpu)
 	else:
 		run_fpd_cluster_slurm(input_files, init_opts, args.min_rec_bb, args.outdir, nstruct,
 					finished_decoys, args.native)
