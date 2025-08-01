@@ -2,6 +2,11 @@
 set -eu
 set -o pipefail
 
+hf_url() {
+	filename="$1"
+  echo "https://huggingface.co/datasets/furman-lab/patchman_datasets/resolve/main/${filename}?download=true"
+}
+
 ###########################################################
 # Download and extract the compiled database for running  #
 # Master.                                                 #
@@ -17,8 +22,8 @@ mkdir -p "$DB_DIR"
 echo "Downloading MASTER database. This may take a while..."
 MASTERDB="$DB_DIR/masterDB/"
 mkdir -p $MASTERDB
-wget --continue --timeout=0 --tries=10 --retry-connrefused --waitretry=5 --limit-rate=1500k \
---user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" -O "$DB_DIR/masterDB.tar.gz" "https://www.cs.huji.ac.il/~jvarga/master_search.tar.gz"
+wget --continue --timeout=0 --tries=10 --retry-connrefused --waitretry=5  \
+--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" -O "$DB_DIR/masterDB.tar.gz" $(hf_url master_search.tar.gz)
 
 echo "Extracting MASTER search database..."
 tar -xzf "$DB_DIR/masterDB.tar.gz" -C $DB_DIR
@@ -27,8 +32,8 @@ rm "$DB_DIR/masterDB.tar.gz" -f
 
 # Download cleaned PDB files for Master
 echo "Downloading and extracting cleaned PDBs for MASTER search. This may take a while..."
-wget --continue --timeout=0 --tries=10 --retry-connrefused --waitretry=5 --limit-rate=1500k \
---user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" -O "$DB_DIR/master_clean.tar.gz" "https://www.cs.huji.ac.il/~jvarga/master_extract.tar.gz"
+wget --continue --timeout=0 --tries=10 --retry-connrefused --waitretry=5  \
+--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" -O "$DB_DIR/master_clean.tar.gz" $(hf_url master_extract.tar.gz)
 
 echo "Extracting cleaned PDBs..."
 tar -xzf "$DB_DIR/master_clean.tar.gz" -C "$DB_DIR"
