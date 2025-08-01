@@ -1,24 +1,26 @@
-import os
-import sys
-import math
 import argparse
-import pandas as pd
+import difflib
+import math
+import os
 from shutil import copyfile
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pymol
+from pymol import cmd
+import glob
+
 import pyrosetta
-#import pyrosetta.distributed.io as io
+import pyrosetta.distributed.packed_pose as packed_pose
 import pyrosetta.io as io
 import pyrosetta.rosetta.core as core
 from pyrosetta.io.silent_file_map import SilentFileMap
-from pyrosetta.rosetta.core.pose import Pose, tag_from_pose, tag_into_pose, get_chains
-from pyrosetta.rosetta.protocols.cluster import ClusterPhilStyle
-import pandas
-import difflib
-import pyrosetta.distributed.packed_pose as packed_pose
-from pyrosetta.rosetta.std import map_core_id_AtomID_core_id_AtomID
 from pyrosetta.rosetta.core.id import AtomID
+from pyrosetta.rosetta.core.pose import Pose, tag_from_pose, tag_into_pose, get_chains
 from pyrosetta.rosetta.core.scoring import superimpose_pose, gdtha
-
+from pyrosetta.rosetta.protocols.cluster import ClusterPhilStyle
+from pyrosetta.rosetta.std import map_core_id_AtomID_core_id_AtomID
 
 
 def filter_and_select_top_structures(scores, tags_to_remove=[], score_type='reweighted_sc', topX=None):
@@ -337,6 +339,170 @@ def clean_dir(dirs=[]):
             except FileNotFoundError:
                 pass
 
+###########################
+
+def get_elements_of_selection(sele):
+	myspace = {'res_numbers': []}
+	cmd.iterate(sele, 'res_numbers.append(resi)', space=myspace)  # iterate through model receptor interface
+	output = np.unique(myspace['res_numbers'])
+	
+	return (output)
+
+
+def find_shortest_chain(object_name):
+	chain_lengths = {}
+	
+	# Iterate over all chains in the object and count residues
+	chains = cmd.get_chains(object_name)
+	for chain in chains:
+		residues = get_elements_of_selection(f'chain {chain} and {object_name}')
+		chain_lengths[chain] = len(set(residues))  # Use a set to count unique residues
+	
+	# Find the shortest chain
+	shortest_chain = min(chain_lengths, key=chain_lengths.get)
+	
+	return chains[0], shortest_chain
+
+
+def create_figures():
+	pymol.pymol_argv = ['pymol', '-cq']
+	cmd.loadall('model_rank*pdb')
+	
+	# load also native if exists
+	native_pdb_file = glob.glob('../*native*.pdb')[0]
+	if native_pdb_file:
+		cmd.load(native_pdb_file, 'native')
+		ch_rec_native, ch_pep_native = find_shortest_chain('native')
+		
+	ch_rec_model, ch_pep_model = find_shortest_chain('model_rank_1')
+	
+	# Align first receptor in all models to native
+	target = 'native' if native_pdb_file else 'model_rank_1'
+	cmd.extra_fit(f"chain {ch_rec_model} and model*", target, "super")
+	
+	# First visualization: full complex
+	cmd.hide("everything")
+
+	cmd.show("cartoon", f"chain {ch_pep_model} and model*")
+	cmd.show("cartoon", f"not chain {ch_pep_model} and model*")
+	cmd.color("white", f"not chain {ch_pep_model} and model*")
+	
+	if native_pdb_file:
+		ch_rec_native, ch_pep_native = find_shortest_chain('native')
+		cmd.show("cartoon", f"chain {ch_pep_native} and native")
+		cmd.spectrum("count", "rainbow_cycle", f"chain {ch_pep_native}")
+		cmd.color("white", "native")
+	
+	cmd.bg_color("white")
+	cmd.set("antialias", 2)
+	cmd.set("ray_trace_mode", 1)
+	cmd.orient()
+	cmd.zoom()
+	cmd.ray(1024)
+	cmd.png("complex_view.png")
+	
+	# Subsequent visualizations for each model
+	models = ["model_rank_1", "model_rank_2", "model_rank_3", "model_rank_4", "model_rank_5"]
+	colors = ["cbag", "cbac", "cbay", "cbao", "cbap"]
+	
+	for model, color in zip(models, colors):
+		try:
+			cmd.hide("everything")
+			cmd.show("cartoon", model)
+			cmd.orient(f"chain {ch_pep_model}")
+			cmd.show("sticks", f"chain {ch_pep_model} and {model} and not (name O or name C or name N)")
+			cmd.hide("everything", f"chain {ch_pep_model} and {model} and hydrogen")
+			getattr(cmd.util, color)(f"chain {ch_pep_model} and {model}")
+			cmd.ray(1024)
+			cmd.png(f"{model}.png")
+		except:
+			print(f'{model} does not exists')
+
+#    cmd.save('models.pse')
+
+
+############################################
+
+
+# sometimes flexpepdock outputs the 2 header lines multiple times, this makes reading with pandas impossible
+def clean_score_file(file):
+	first = True
+	with open(file, "r") as input:
+		with open("temp.sc", "w") as output:
+			for line in input:
+				if first and line.startswith("SCORE"):  # we want header
+					output.write(line)
+					first = False
+				elif 'SEQ' not in line:
+					if 'description' not in line.strip("/n"):
+						output.write(line)
+	
+	# replace file with original name
+	os.rename('temp.sc', file)  # temp.sc exists
+
+
+def sorted_scores_and_extract_top10(sc):
+	clean_score_file('score.sc')
+	scores = pd.read_table('score.sc', sep="\s+", header=0, index_col=0)
+	
+	# get scores for all in one dataframe
+	scores = scores.sort_values(sc).reset_index().round(3)
+	
+	return scores
+
+
+def landscape_by_score(scores, sc, r):
+	plt.style.use('seaborn-v0_8-whitegrid')
+	f, ax = plt.subplots(1, 1, figsize=(10, 8))
+	plt.scatter(scores[r], scores[sc], s=85, alpha=0.2)
+	plt.ylabel(sc, fontsize=20)
+	plt.xlabel(r, fontsize=20)
+	plt.yticks(size=15)
+	plt.xticks(size=15)
+	plt.title(f"{r} vs {sc}", fontsize=25)
+	ax.set_xlim(left=0)
+	legend = plt.legend(frameon=3, loc="upper right", edgecolor='inherit', fontsize='20',
+	                    title_fontsize='20')  # "upper left"
+	frame = legend.get_frame()
+	frame.set_color('white')
+	#    plt.show()
+	f.savefig(f"results/{r}_VS_{sc}_landscape.png")
+
+
+def plot_landscapes(scores, s="reweighted_sc", r="rmsBB_if"):
+	ninety = scores.iloc[:math.floor(len(scores) * 0.9), :]  # we do not plot very high values
+	landscape_by_score(ninety, s, r)
+	
+	return ninety
+
+
+def save_score_file(scores_file, return_all_scores=True, score_type='reweighted_sc', rmsd_type='rmsBB_if'):
+	if return_all_scores:
+		out_columns = ['reweighted_sc', 'score', 'I_sc', 'pep_sc',
+		               'pep_sc_noref', 'fa_atr', 'fa_rep', 'fa_sol',
+		               'fa_dun', 'hbond_sc', 'rmsBB_if',
+		               'rmsALL_if', 'rmsBB', 'startRMSbb', 'description']
+	else:
+		out_columns = [score_type, rmsd_type, 'description']
+	
+	df = scores_file[out_columns]
+	df.to_csv("filtered_scores.tsv", sep="\t", index=False)
+	
+	# also save only the top10 scores, this might make online data visualization easier
+	df.nsmallest(n=10, columns=[score_type]).reset_index().to_csv('top10_scores.tsv', sep='\t', index=False)
+	
+	return out_columns
+
+
+def run_post_pocessing(return_all_scores=True, score_type='reweighted_sc', rmsd_type='rmsBB_if'):
+	scores = sorted_scores_and_extract_top10(score_type)  # sorted and extract pdb files by score
+	scores_90 = plot_landscapes(scores, score_type, rmsd_type)  # print landscapes and return only 90% of the scores
+	save_score_file(scores_90, return_all_scores, score_type, rmsd_type)  # save results in tsv file
+	
+	os.chdir('results')
+	create_figures()
+
+
             
 def parse_args():
     parser = argparse.ArgumentParser(description="Run clustering and finalization steps.")
@@ -372,8 +538,6 @@ def main():
     if not os.path.isfile(args.score_file):
         raise RuntimeError(f'Score file {args.score_file} does not exist.')
 
-    print(os.getcwd())
-    
     # First sort the scores and select and load top 1% (or other specified)
     scores_sorted = extract_and_sort_score_file(score_file=args.score_file, output_file='sorted.sc')
     tags = filter_and_select_top_structures(scores_sorted, tags_to_remove=args.tags_to_remove, topX=args.topX).description.tolist()
@@ -384,6 +548,9 @@ def main():
     clusters = run_clustering(all_poses, actual_radius)
     only_cluster_centers_df = process_clusters(clusters)
     run_finalize(only_cluster_centers_df)
+    
+    # Run post-processing to plot energy landscapes and save cleaned score file
+    run_post_pocessing(return_all_scores=True, score_type='reweighted_sc', rmsd_type='rmsBB_if')
 
 
 def paired_residue_inds(a, b):
