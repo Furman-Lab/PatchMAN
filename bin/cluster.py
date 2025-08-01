@@ -369,10 +369,13 @@ def create_figures():
 	cmd.loadall('model_rank*pdb')
 	
 	# load also native if exists
-	native_pdb_file = glob.glob('../*native*.pdb')[0]
-	if native_pdb_file:
+	native_pdbs = glob.glob('../*native*.pdb')
+	if len(native_pdbs) > 0:
+		native_pdb_file = native_pdbs[0]
 		cmd.load(native_pdb_file, 'native')
 		ch_rec_native, ch_pep_native = find_shortest_chain('native')
+	else:
+		native_pdb_file = None
 		
 	ch_rec_model, ch_pep_model = find_shortest_chain('model_rank_1')
 	
