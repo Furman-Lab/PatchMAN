@@ -469,7 +469,7 @@ def landscape_by_score(scores, sc, r):
 	frame = legend.get_frame()
 	frame.set_color('white')
 	#    plt.show()
-	f.savefig(f"results/{r}_VS_{sc}_landscape.png")
+	#f.savefig(f"results/{r}_VS_{sc}_landscape.png")
 
 
 def plot_landscapes(scores, s="reweighted_sc", r="rmsBB_if"):
@@ -489,10 +489,7 @@ def save_score_file(scores_file, return_all_scores=True, score_type='reweighted_
 		out_columns = [score_type, rmsd_type, 'description']
 	
 	df = scores_file[out_columns]
-	df.to_csv("filtered_scores.tsv", sep="\t", index=False)
-	
-	# also save only the top10 scores, this might make online data visualization easier
-	df.nsmallest(n=10, columns=[score_type]).reset_index().to_csv('top10_scores.tsv', sep='\t', index=False)
+	df.to_csv("results/filtered_scores.tsv", sep="\t", index=False)
 	
 	return out_columns
 
