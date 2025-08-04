@@ -230,6 +230,7 @@ def protocol_slurm(pose_path, index, output_path):
 	io.to_silent(out_pose, silent_file_name)
 	print(f'Finished running FlexPepDock on {numbered_basename} (Worker {worker_id})')
 	sys.stdout.flush()
+	
 
 
 def run_fpd_cluster_slurm(list_of_inputs, init_opts, min_rec_bb=False, output_path='.',
