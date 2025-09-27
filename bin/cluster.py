@@ -22,6 +22,85 @@ from pyrosetta.rosetta.core.scoring import superimpose_pose, gdtha
 from pyrosetta.rosetta.protocols.cluster import ClusterPhilStyle
 from pyrosetta.rosetta.std import map_core_id_AtomID_core_id_AtomID
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
+
+def create_fpd_scoring_mover(native_pose):
+        from pyrosetta.rosetta.protocols.rosetta_scripts import RosettaScriptsParser
+
+        # print(f"Creating FlexPepDock mover")
+
+        # FlexPepDock XML definition
+        xml = f"""
+                <ROSETTASCRIPTS>
+                        <SCOREFXNS>
+                                <ScoreFunction name="sfxn" weights="ref2015"/>
+                        </SCOREFXNS>
+                        <MOVERS>
+                                <FlexPepDock name="fpd" pep_refine="0" extra_scoring="1" lowres_preoptimize="0" min_receptor_bb='0'/>
+                        </MOVERS>
+                        <PROTOCOLS>
+                                <Add mover_name="fpd" />
+                        </PROTOCOLS>
+                </ROSETTASCRIPTS>
+        """
+
+        # Run RosettaScripts
+        parser = RosettaScriptsParser()
+        default_options = pyrosetta.rosetta.basic.options.process()
+        tag = parser.create_tag_from_xml_string(xml, default_options)
+        fpd_protocol = parser.parse_protocol_tag(tag, default_options).get_mover(1)
+        fpd_protocol.set_default()  # this will take care of unboundrot
+
+        fpd_protocol.set_native_pose(native_pose)
+
+        return fpd_protocol
+
+def rescore_models(silent_file, scores_sorted, tags=None, output_file='rescore.sc'):
+    from pyrosetta.rosetta.protocols.jd2 import get_string_real_pairs_from_current_job
+    # Remove old RMSD columns
+    rms_columns = [col for col in scores_sorted.columns if col.startswith('rms')]
+    scores_filtered = scores_sorted.drop(columns=rms_columns)
+
+    # Prepare top scoring decoy
+    top_scoring_tag = scores_sorted.head(1).description.iloc[0]
+    top_scoring_pose = read_poses_from_silentfile(silent_file, tags=[top_scoring_tag], sort_by_score='reweighted_sc')[0]
+
+    poses = read_poses_from_silentfile(silent_file)
+    fpd_scoring_mover = create_fpd_scoring_mover(top_scoring_pose)
+
+    #Rescore
+    scores_to_save = ['rmsALL', 'rmsALL_allIF', 'rmsALL_if', 'rmsBB', 'rmsBB_allIF', 'rmsBB_if', 
+                      'rmsSC_allIF', 'rmsPHIPSI', 'rmsPHIPSI', 'rmsPHIPSI_if', 'rmsCA', 'rmsCA_if']
+    more_scores_to_save = ['score', 'fa_atr', 'fa_rep', 'fa_sol', 'fa_dun', 'hbond_sc']
+    scores = []
+    all_poses = []
+    for pose in poses:
+        tag = pyrosetta.rosetta.core.pose.tag_from_pose(pose)
+        
+        # before = pose.scores['rmsBB_if'] # debug
+        fpd_scoring_mover.apply(pose)
+        extra_scores = dict(get_string_real_pairs_from_current_job())
+        extra_scores['description'] = tag
+                
+        # we also need them in the poses we work with, otherwise the final results will contain the old values
+        if tag in tags:
+            for k, v in extra_scores.items():
+                if not k.startswith('best'):
+                    pose.scores[k] = v
+            all_poses.append(pose)
+
+        # we want to also provide these, but these are not from FPD
+        for score_type in more_scores_to_save:
+            extra_scores[score_type] = pose.scores[score_type]
+        scores.append(extra_scores)
+
+    # Save calculated RMSD-s
+    rescore_df = pd.DataFrame(scores).sort_values(by='reweighted_sc', ascending=True)
+    rescore_df.to_csv(output_file, sep='\t', index=False, header=False)
+
+    return rescore_df, all_poses
 
 def filter_and_select_top_structures(scores, tags_to_remove=[], score_type='reweighted_sc', topX=None):
     """
@@ -77,7 +156,7 @@ def read_pose(silent_struct, tag, score=None, sort_by_score='reweighted_sc'):
     return pose
 
 
-def read_poses_from_silentfile(silent_file, tags, sort_by_score='reweighted_sc'):
+def read_poses_from_silentfile(silent_file, tags=None, sort_by_score='reweighted_sc'):
     """
     :param silent_file: the silent file to read
     :param tags: list of tags to extract. If not defined, will use all the decoys
@@ -427,56 +506,22 @@ def create_figures():
 ############################################
 
 
-# sometimes flexpepdock outputs the 2 header lines multiple times, this makes reading with pandas impossible
-def clean_score_file(file):
-	first = True
-	with open(file, "r") as input:
-		with open("temp.sc", "w") as output:
-			for line in input:
-				if first and line.startswith("SCORE"):  # we want header
-					output.write(line)
-					first = False
-				elif 'SEQ' not in line:
-					if 'description' not in line.strip("/n"):
-						output.write(line)
-	
-	# replace file with original name
-	os.rename('temp.sc', file)  # temp.sc exists
-
-
-def sorted_scores_and_extract_top10(sc):
-	clean_score_file('score.sc')
-	scores = pd.read_table('score.sc', sep="\s+", header=0, index_col=0)
-	
-	# get scores for all in one dataframe
-	scores = scores.sort_values(sc).reset_index().round(3)
-	
-	return scores
-
-
-def landscape_by_score(scores, sc, r):
+def landscape_by_score(scores, score_type, rmsd_type):
 	plt.style.use('seaborn-v0_8-whitegrid')
 	f, ax = plt.subplots(1, 1, figsize=(10, 8))
-	plt.scatter(scores[r], scores[sc], s=85, alpha=0.2)
-	plt.ylabel(sc, fontsize=20)
-	plt.xlabel(r, fontsize=20)
+	plt.scatter(scores[rmsd_type], scores[score_type], s=85, alpha=0.2)
+	plt.ylabel(score_type, fontsize=20)
+	plt.xlabel(rmsd_type, fontsize=20)
 	plt.yticks(size=15)
 	plt.xticks(size=15)
-	plt.title(f"{r} vs {sc}", fontsize=25)
+	plt.title(f"{rmsd_type} vs {score_type}", fontsize=25)
 	ax.set_xlim(left=0)
 	legend = plt.legend(frameon=3, loc="upper right", edgecolor='inherit', fontsize='20',
 	                    title_fontsize='20')  # "upper left"
 	frame = legend.get_frame()
 	frame.set_color('white')
 	#    plt.show()
-	#f.savefig(f"results/{r}_VS_{sc}_landscape.png")
-
-
-def plot_landscapes(scores, s="reweighted_sc", r="rmsBB_if"):
-	ninety = scores.iloc[:math.floor(len(scores) * 0.9), :]  # we do not plot very high values
-	landscape_by_score(ninety, s, r)
-	
-	return ninety
+	f.savefig(f"results/{rmsd_type}_VS_{score_type}_landscape.png")
 
 
 def save_score_file(scores_file, return_all_scores=True, score_type='reweighted_sc', rmsd_type='rmsBB_if'):
@@ -494,13 +539,16 @@ def save_score_file(scores_file, return_all_scores=True, score_type='reweighted_
 	return out_columns
 
 
-def run_post_pocessing(return_all_scores=True, score_type='reweighted_sc', rmsd_type='rmsBB_if'):
-	scores = sorted_scores_and_extract_top10(score_type)  # sorted and extract pdb files by score
-	scores_90 = plot_landscapes(scores, score_type, rmsd_type)  # print landscapes and return only 90% of the scores
-	save_score_file(scores_90, return_all_scores, score_type, rmsd_type)  # save results in tsv file
+def run_post_processing(scores, return_all_scores=True, score_type='reweighted_sc', rmsd_type='rmsBB_if'):
+    n_rows = int(len(scores) * 0.9)
+    
+    # sorted and extract pdb files by score, return only 90% of the rows
+    scores_90 = scores.sort_values(score_type, ascending=True).head(n_rows)  
+    landscape_by_score(scores_90, score_type, rmsd_type)
+    save_score_file(scores_90, return_all_scores, score_type, rmsd_type)  # save results in tsv file
 	
-	os.chdir('results')
-	create_figures()
+    os.chdir('results')
+    create_figures()
 
 
             
@@ -512,12 +560,13 @@ def parse_args():
     parser.add_argument("-t", "--tags_to_remove", nargs="+", default=[], help="Tags to exclude from clustering.")
     parser.add_argument("-r", "--radius", type=float, default=2.0, help="RMSD threshold for clustering.")
     parser.add_argument("-x", "--topX", type=int, default=0.01, help="Ratio of decoys to take for clustering (0<x<=1) or exact number x>1")
+    parser.add_argument("--no-rescore", action="store_true", help="Do not rescore against top scoring structure.")
 
     return parser.parse_args()
 
 
 def main():
-    pyrosetta.init()
+    pyrosetta.init('-mute FlexPepDockingProtocol FlexPepDockingPoseMetrics protocols.flexPepDocking core.pack core.scoring basic.io.database')
 
     args = parse_args()
 
@@ -541,7 +590,12 @@ def main():
     # First sort the scores and select and load top 1% (or other specified)
     scores_sorted = extract_and_sort_score_file(score_file=args.score_file, output_file='sorted.sc')
     tags = filter_and_select_top_structures(scores_sorted, tags_to_remove=args.tags_to_remove, topX=args.topX).description.tolist()
-    all_poses = read_poses_from_silentfile(args.silent_file, tags)
+
+    if not args.no_rescore:
+        scores_sorted, all_poses = rescore_models(args.silent_file, scores_sorted, tags, output_file='rescore.sc')
+        scores_sorted.to_csv('sorted.sc', sep='\t', index=False, header=False)
+    else:
+        all_poses = read_poses_from_silentfile(args.silent_file, tags)
     actual_radius = calculate_actual_radius(all_poses[0], args.radius)
 
     # Run clustering and process the results
@@ -550,7 +604,7 @@ def main():
     run_finalize(only_cluster_centers_df)
     
     # Run post-processing to plot energy landscapes and save cleaned score file
-    run_post_pocessing(return_all_scores=True, score_type='reweighted_sc', rmsd_type='rmsBB_if')
+    run_post_processing(scores_sorted, return_all_scores=True, score_type='reweighted_sc', rmsd_type='rmsBB_if')
 
 
 def paired_residue_inds(a, b):
