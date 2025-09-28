@@ -520,7 +520,6 @@ def landscape_by_score(scores, score_type, rmsd_type):
 	                    title_fontsize='20')  # "upper left"
 	frame = legend.get_frame()
 	frame.set_color('white')
-	#    plt.show()
 	f.savefig(f"results/{rmsd_type}_VS_{score_type}_landscape.png")
 
 
