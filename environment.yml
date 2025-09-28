@@ -11,7 +11,7 @@ dependencies:
   - attrs
   - billiard
   - "bokeh>=3.1.0"
-  - pyrosetta
+  - pyrosetta==2025.33+release.a492b89a9e # some newer versions have weird errors with multiprocessing
   - git
   - gitpython
   - toolz
