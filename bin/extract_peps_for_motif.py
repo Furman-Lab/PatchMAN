@@ -1,23 +1,27 @@
-
-
 from pyrosetta import *
 from pyrosetta.rosetta import *
 import sys
+import re
 
 import time
 from os import system
-from os import path
+from os import path, environ
 import argparse
 
 import pyrosetta_utils as utils
 from chain_filter import find_relevant_chains
 from rosetta_protocols import fixbb_design
 
+##### DEBUG
 GAP_ALLOWED = 3
 ELONGATE_BY_MAX = 4
 NEIGHBORS_DIST = 8
 INTERACTION_DIST = 5
 CLASH_DIST = 2
+
+FOCUS_OVERLAP_RESIDUES = 3
+HOTSPOT_OVERLAP_RESIDUES = 1
+MASK_OVERLAP_RESIDUES = 3
 
 OVERALL_MATCHES = 100
 
@@ -29,21 +33,22 @@ Create initial complexes: extract peptides from proteins with motifs similar to 
 *Take first 50 matches --> low RMSD, and last 50 matches --> depends on the RMSD cutoff"""
 
 
-def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scrfxn, design):
-    """For each motif there are N matches. Take first 50 matches --> low RMSD,
-    and last 50 matches --> default cutoff is 1.5A)."""
+def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scrfxn, design, check_list=None, focus=False, hotspot_mode=False):
+    """For each motif there are N matches. Currently I limit them to the 1000 best RMSD matches. Probably should
+    sample more distant matches too."""
     single_motif_complexes = 0
 
     start_motif = time.time()
+    print('Begin generating complexes for a motif')
+
     patch_pose = pose_from_pdb(patch)
 
     patch_name = patch.split('_')[0]
     log_name = patch_name + '.log'
 
     with open(log_name, 'w') as log:
-        log.write('Begin generating complexes for patch %s\n' % patch_name)
+        log.write('Patch: %s\n'%patch_name)
 
-    print(matches)
     for match in matches:
         rmsd = match[0]
         motif_pdb = match[1][-4:]
@@ -54,15 +59,17 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
         indices = [r + 1 for m_stretch in motif_stretches for r in m_stretch]  # the numbering in master output is from 0
 
         match_to_report = motif_pdb + ': ' + ','.join([str(i) for i in indices])
+        pdb_path = DB_PATH + '/' + motif_pdb.upper() + '.clean.pdb'
 
-        if not path.isfile(DB_PATH + motif_pdb.upper() + '.clean.pdb'):
+        if not path.isfile(pdb_path):
+            print('Not found ' + pdb_path, flush=True)
             try:
                 pdb_pose = toolbox.pose_from_rcsb(motif_pdb)
             except RuntimeError:
                 continue
         else:
             try:
-                pdb_pose = pose_from_pdb(DB_PATH + motif_pdb.upper() + '.clean.pdb') # all pdbs are downloaded in the previous step (download_all_pdbs.sh)
+                pdb_pose = pose_from_pdb(pdb_path) # all pdbs are downloaded in the previous step (download_all_pdbs.sh)
             except RuntimeError:
                 continue
 
@@ -85,7 +92,7 @@ def extract_templates_for_motif(matches, pepseq, plen, patch, receptor_pose, scr
         for i, stretch in enumerate(stretches):
             complex_name = patch_name + '_' + motif_pdb + '_%s' % str(stretch[0]) + '_%s' % str(stretch[-1]) + '.pdb'
             try:
-                complex_pose = create_complex(receptor_pose, superimposed_pose, stretch, complex_name, log_name)
+                complex_pose = create_complex(receptor_pose, superimposed_pose, stretch, complex_name, log_name, check_list, focus, hotspot_mode)
             except ValueError:
                 continue
 
@@ -155,25 +162,40 @@ def thread_pepseq(complex_pose_name, complex_pose, pepseq, scrfxn):
     else:
         return True
 
+def remove_ssbond_lines(input_file, output_file):
+    with open(input_file, 'r') as file:
+        lines = file.readlines()
 
-def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name):
+    with open(output_file, 'w') as file:
+        file.writelines(line for line in lines if not line.startswith("SSBOND"))
+
+
+def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name, check_list=None, focus=False, hotspot_mode=False):
     complex_pose = Pose()
     complex_pose.assign(receptor_pose)
 
-    core.pose.append_subpose_to_pose(complex_pose, pose_to_cut, int(pep[0]), int(pep[-1]), True)
+    # need a try-except as many times this crashes because cannot always replace terminals
+    try:
+        core.pose.append_subpose_to_pose(complex_pose, pose_to_cut, int(pep[0]), int(pep[-1]), True)
+    except RuntimeError:
+        return False
 
     pep_residues = utility.vector1_unsigned_long()
     for r in range(complex_pose.chain_begin(2), complex_pose.chain_end(2) + 1):
-        pep_residues.append(r)
+        if not complex_pose.residue(r).is_protein(): # if any residue is not a protein, we cannot use it
+            return False # 2ORZ/043_2xs2_87_89_0001.pdb
+        else:
+            pep_residues.append(r)
     pep_pose = Pose()
     pep_pose.assign(complex_pose)
     core.pose.pdbslice(pep_pose, pep_residues)
-
     complex_pose.dump_pdb(complex_name)
+
+    # since the receptor is renumbered, ss-bonds are a problem. Remove them
+    remove_ssbond_lines(complex_name, complex_name)
 
     with open(log_name, 'a') as log:
         log.write('Complex %s\n' % complex_name)
-
     #### NOTE
     #### I am not asking for pepchain, because for some reason it returns '^'
     #### In the chain filtering step I will take the chain which is not a receptor chain as a peptide chain
@@ -204,7 +226,51 @@ def create_complex(receptor_pose, pose_to_cut, pep, complex_name, log_name):
         if bsa >= cur_cutoff:
             with open(log_name, 'a') as log:
                 log.write("%s passed second filter with BSA %s\n" % (complex_name, bsa))
-            return complex_pose
+            if check_list is None:
+                return complex_pose
+            else:
+                print('checking for interaction with focus')
+                # when focusing, we also want to check if the patch residues are in the focus interface
+                if focus:
+                    overlap_residues = FOCUS_OVERLAP_RESIDUES
+                elif hotspot_mode:
+                    overlap_residues = HOTSPOT_OVERLAP_RESIDUES
+                elif not focus and not hotspot_mode:
+                    overlap_residues = MASK_OVERLAP_RESIDUES
+
+                # select those residues that are around the peptide and belong to chain B
+                chain_name = core.pose.get_chain_from_chain_id(2, complex_pose)
+                peptide_selector = core.select.residue_selector.ChainSelector(chain_name) # we want only neighbors from the receptor
+                rec_int_selector = utils.create_neighborhood_selector(INTERACTION_DIST, False)
+
+                # we get the residues neighboring chain B, the peptide
+                rec_int_selector.set_distance(8)
+                rec_int_selector.set_focus_selector(peptide_selector)
+
+                # we need to convert the residues to pdb numbering as the check_list is in pdb numbering
+                rec_int_residues = core.select.get_residues_from_subset(rec_int_selector.apply(complex_pose))
+                rec_int = list(map(str, rec_int_residues))
+
+                rec_int_pdb = utils.convert_rosetta_numbers_to_pdb(complex_pose.pdb_info(), rec_int)
+
+                # count the number of overlapping residues between the receptor interface residues and the focus residues
+                overlap = set(rec_int_pdb).intersection(set(check_list))
+                len_overlap = len(overlap)
+                overlap_residues_str = ','.join(overlap)
+                print('residues touched: ' +','. join(rec_int_pdb) + '\n')
+                print('residues in check list: ' + ','.join(check_list) + '\n')
+
+                if (focus or hotspot_mode) and len_overlap >= overlap_residues:
+                    with open(log_name, 'a') as log:
+                        log.write("%s passed third filter for focusing with %s overlapping residues: %s\n" % (complex_name, str(len_overlap), overlap_residues_str))
+                    return complex_pose
+                elif not focus and not hotspot_mode and len_overlap <= overlap_residues:
+                    with open(log_name, 'a') as log:
+                        log.write("%s passed third filter for masking with %s overlapping residues: %s\n" % (complex_name, str(len_overlap), overlap_residues_str))
+                    return complex_pose
+                else:
+                    with open(log_name, 'a') as log:
+                        log.write("%s is filtered out by overlapping residues of only %s with focus patch: %s \n" % (complex_name, str(len_overlap), overlap_residues_str))
         else:
             with open(log_name, 'a') as log:
                 log.write(complex_name + ' is filtered by BSA: %s < %s\n' % (bsa, cur_cutoff))
@@ -370,7 +436,20 @@ def arg_parser():
     parser.add_argument('--receptor', '-r', dest='rec', default=None)  # receptor pdb
     parser.add_argument('--patch', '-a', dest='patch', default=None)  # patch pdb
     parser.add_argument('--peptide', '-p', dest='pep', default=None)  # peptide seq for docking
-    parser.add_argument('--peplen', '-l', dest='plen', default=None)  # peptide length for design
+    parser.add_argument('--peplen', '-e', dest='plen', default=None)  # peptide length for design
+    
+    # for the new focus version
+    parser.add_argument('-f', '--focus', help='Switching between focus and masking mode', action='store_true',
+                        default=False)
+    parser.add_argument('-l', '--resi_list',
+                        help='List of focus residues that should or should not form the interface, separated by comma: "A31,A56,A12"',
+                        required=False, default=None)
+    parser.add_argument('-s', '--mask_focus',
+                        help='PDB file, with residues that should or should not be on the interface',
+                        required=False, default=None)
+    parser.add_argument('-o', '--hotspot_mode',
+                        help='Only with focus mode. If True, all residues in the focus patch will be used as a center of patch.',
+                        required=False, action='store_true')
 
     return parser
 
@@ -381,7 +460,20 @@ def main():
     pep = args.pep
     receptor = args.rec
     patch = args.patch
+    
+    # process inputs for mask and focus residues
+    check_list = utils.parse_mask_and_focus(args)
+    
+    # some sanity checks with the input
+    if check_list is None:
+        args.focus = False
+        args.hotspot_mode = False
+    
+    if args.focus and args.hotspot_mode:
+        print('ERROR: Choose either focus or hotspot mode, not both!')
+        sys.exit(1)
 
+    # Start process
     start_all = time.time()
 
     scrfxn = create_score_function('ref2015')
@@ -394,18 +486,21 @@ def main():
                 pepseq = peptide_seq[1].strip()
             else:
                 pepseq = peptide_seq[0].strip()
-        plen = len(pepseq)
+
+        pattern = re.compile(r'(\[[A-Z]{3,4}:[a-z]+\]|[A-Z])') # if contains non-canonical residues, the peptide length is different
+        split_peptide = re.findall(pattern, pepseq)
+        plen = len(split_peptide)
     else:
-        pepseq=None
+        pepseq = None
         plen = int(args.plen) # peptide length (for design)
 
-    extract_templates_for_motif(all_matches, pepseq, plen, patch, receptor_pose, scrfxn, args.design)
+    extract_templates_for_motif(all_matches, pepseq, plen, patch, receptor_pose, scrfxn, args.design, check_list, args.focus, args.hotspot_mode)
 
     print('All templates were generated in %s min'%(str((time.time()-start_all)/60)))
 
 
 if __name__ == "__main__":
 
-    init('-mute all')  # initialize pyrosetta
+    init('-mute all -detect_disulf true')  # for pyrosetta
 
     main()
