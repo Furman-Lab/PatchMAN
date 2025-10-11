@@ -1,6 +1,6 @@
 ## PatchMAN protocol for blind peptide-protein docking
 
-<img align="left" width="500" height="144" src="https://raw.githubusercontent.com/Alisa-Kh/PatchMAN/master/img/PatchMAN_small.PNG">
+<img align="left" width="500" height="144" src="https://raw.githubusercontent.com/Alisa-Kh/PatchMAN/master/PatchMAN_small.PNG">
 
 <br /><br /><br /><br /><br />
 
@@ -8,7 +8,11 @@
 
 PatchMAN (Patch-Motif AligNments) maps the receptor surface for local structural motif matches in structures of protein monomers and interfaces, to extract complementary fragments and derive templates for peptide-protein docking.
 
-The protocol consists of 4 consecutive steps: (1) Definition of surface patches on the receptor; (2) Identification of structural motif matches in protein structures, and an interacting fragment that can be used as template for the bound peptide; (3) Generation of the peptide-protein complex template structure, by superimposing the interacting peptide back onto the receptor, and (4) Replacing side chains according to the peptide sequence (threading), refinement and scoring of the model.
+The protocol consists of 4 consecutive steps:  
+(1) Definition of surface patches on the receptor  
+(2) Identification of structural motif matches in protein structures, and an interacting fragment that can be used as template for the bound peptide  
+(3) Generation of the peptide-protein complex template structure, by superimposing the interacting peptide back onto the receptor, and  
+(4) Replacing side chains according to the peptide sequence (threading), refinement and scoring of the model.  
 
 ---
 
@@ -41,15 +45,15 @@ python3 PatchMAN_protocol.py <arguments> RECEPTOR PEPTIDE
 ```
 If you want to start a local dask cluster for parallelization, instead of a SLURM scheduler, run:
 ```
-python3 PatchMAN_protocol.py <arguments> RECEPTOR PEPTIDE
+python3 PatchMAN_protocol_dask.py <arguments> RECEPTOR PEPTIDE
 ```
 
 where RECEPTOR is a PDB file and PEPTIDE is the peptide sequence to be docked.
-The peptide can contain post-translational modifications, denoted by Rosetta standards, e.g. `[SER:phosphorylated]`. The available PTMs can be listed with
+Experimental: The peptide can contain post-translational modifications, denoted by Rosetta standards, e.g. `[SER:phosphorylated]`. The available PTMs can be listed with
 
 ```ls <env_path>/lib/python3.11/site-packages/pyrosetta/database/chemical/residue_type_sets/fa_standard/patches```
 
-:exclamation: The protocol is provided both runnable locally (PatchMAN_protocol_dask.py) and via a SLURM scheduler (PatchMAN_protocol.py). Running on other HPC computers would require changes of the scripts. Unfortuantely, we cannot help with that.
+:exclamation: The protocol is provided both runnable locally (PatchMAN_protocol_dask.py) and via a SLURM scheduler (PatchMAN_protocol.py). Running on other HPC computers would require changes of the scripts. Unfortunately, we cannot help with that.
 
 #### Test run
 A test run of PatchMAN can be performed on the 1ssh.pdb in the `test/` directory. Turning off receptor backbone minimization for testing purposes decreases runtime:
