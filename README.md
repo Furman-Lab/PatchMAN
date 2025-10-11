@@ -10,124 +10,87 @@ PatchMAN (Patch-Motif AligNments) maps the receptor surface for local structural
 
 The protocol consists of 4 consecutive steps: (1) Definition of surface patches on the receptor; (2) Identification of structural motif matches in protein structures, and an interacting fragment that can be used as template for the bound peptide; (3) Generation of the peptide-protein complex template structure, by superimposing the interacting peptide back onto the receptor, and (4) Replacing side chains according to the peptide sequence (threading), refinement and scoring of the model.
 
-### What's new in v2.0?
-- BSA filter added to improve efficiency
-- nstruct is calculated automatically
-- Added scripts to ease installation
-
 ---
 
 ### Installation
 
 #### Downloading software and data
-1. Register for [MASTER v1.6]([https://grigoryanlab.org/index.php?sec=get&soft=MASTER](https://grigoryanlab.org/index.php?sec=download&soft=MASTER)) and obtain download URL.
-2. Create a .env file to contain login information: ```cp sample.env .env```
-3. Edit `download_data_and_software.sh` file with MASTER's URL.
-4. Run `bash download_data_and_software.sh` that will take care of downloading all the required files and extracting the database for MASTER search into the `databases/masterDB` and `databases/master_clean` directory. Downloading Rosetta, PyRosetta and the MASTER database can take significant amount of time, depending on your network. The script downloads the versions of the softwares that are used in the paper.
+1. Obtain the files in this repo: 
+   `git clone --branch python https://github.cs.huji.ac.il/fora-lab/PatchMAN-forServer`  
+2. Register for [MASTER v1.6](https://grigoryanlab.org/index.php?sec=download&soft=MASTER), go to the download page and copy the link of the `Source code` of MASTER v1.6 and add its URL to create_env.sh (to define $MASTER_URL).
+3. Run `bash download_data.sh`, that will take care of downloading all the required files and extracting the databases to the `databases/` directory. This usually takes 5-10mins.
 
-:exclamation: Note: Running MPI in Singularity containers require that the version of the hose and container MPI match. The script automatically detects the version of host OpenMPI (required to speed up FlexPepDock runs) and downloads it. If the container is not built on the host computer that will run it, the variable `OMPI_VERSION` might need to be manually modified.
-
-
-#### Option 1: Installation with Singularity containers (recommended)
-
-Three singularity definition files are provided for compiling MASTER, Rosetta and PyRosetta together with all the required python scripts. 
-How you need to build singularity images might be system dependent, as it requires sudo. For example, you might need to run virtual machines or other similar systems. The images can be built with:
+#### Installation with conda/mamba environment (recommended)
+To create a new environment, just simply run the following command:
 ```
-sudo singularity build rosetta.sif rosetta.def   # compiling Rosetta can take significant amount of time
-sudo singularity build python.sif python.def    
-sudo singularity build master.sif master.def     # this also takes care of patching PatchMAN
+bash create_env.sh
 ```
+:exclamation: the script uses micromamba for Linux. If you use another OS, change the `MICROMAMBA_URL` accordingly and might need to modify a few commands also. See:
+- MacOS: https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html#linux-and-macos
+- Windows: https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html#windows
 
-#### Option 2: Installation without containers
-
-- To install python packages and [PyRosetta](https://www.pyrosetta.org/downloads), create a virtual environment and activate it. One example:
-    ```
-    conda create -n patchman python=3.5         # newer python versions can also be used
-    conda activate patchman  # or activate.csh, based on your shell type
-    pip3 install -r requirements.txt # install required packages
-    python3 --version # get your Python3 version
-    ```
-    Download PyRosetta wheel that matches your python3 version and your OS with the link.
-    ```
-    pip3 install <downloaded pyrosetta wheel> 
-    ```
-    To get support on PyRosetta and its installation, visit: https://www.pyrosetta.org/downloads
-  
-- Install Rosetta from the downloaded rosetta.tar.gz with mpi support. You can change the number of used cores (-j argument) according to your system
-    ```
-    cd containers/
-    mkdir rosetta
-    tar -xzf rosetta.tar.gz -C rosetta --strip-components=1
-    cd rosetta/main/source 
-    python scons.py -j 4 extras=mpi,serialization mode=release bin/FlexPepDocking.mpiserialization.linuxgccrelease bin/cluster.mpiserialization.linuxgccrelease
-    ```
-    For further support on Rosetta installation, please refer to the documentation.
-
-- Set up MASTER
-  - The downloaded source code needs a slight modification for running PatchMAN . This can be done in 2 different ways:
-    -  Programatically (using the patch file in the `bin/` directory):
-        ```
-        patch -l master/src/Match.cpp bin/master.patch
-        ```
-    -  Manually: Go to line 107 in the `Match.cpp` file and add the following code (before `return os;`):
-
-        ```
-        double *T=((Match*)(&m))->getTranslation();
-        double **R=((Match*)(&m))->getRotation();
-
-        os << " T: " << T[0]    << " " << T[1]    << " " << T[2]    << " ";
-        os << " U: " << R[0][0] << " " << R[0][1] << " " << R[0][2] << " "
-                     << R[1][0] << " " << R[1][1] << " " << R[1][2] << " "
-                     << R[2][0] << " " << R[2][1] << " " << R[2][2] << " ===" ;
-        ```
-  - After patching, compile master with
-      ```
-      cd master 
-      make all
-      ```
-    For further info and support on MASTER, please read the INSTALL and [MASTER's homepage](https://grigoryanlab.org/master/)
-
-- Create a .env file from sample.env, uncomment and edit the paths in the bottom of the file.
----
+Running the env installation will also take 5-10 mins, and it needs to download and extract pyrosetta. By default, it install the environment in the current directory. If you want to install it in a different directory, modify or remove the `prefix` in the: `micromamba env create` line.
 
 ### Quick start
 
 PatchMAN can be run with:
 
-`bash PatchMAN_protocol.sh <arguments> RECEPTOR PEPTIDE`
+```
+micromamba activate ./patchman   # default the env is created inside the directory. 
+python3 PatchMAN_protocol.py <arguments> RECEPTOR PEPTIDE
+```
+If you want to start a local dask cluster for parallelization, instead of a SLURM scheduler, run:
+```
+python3 PatchMAN_protocol.py <arguments> RECEPTOR PEPTIDE
+```
 
 where RECEPTOR is a PDB file and PEPTIDE is the peptide sequence to be docked.
 The peptide can contain post-translational modifications, denoted by Rosetta standards, e.g. `[SER:phosphorylated]`. The available PTMs can be listed with
 
-```singularity run containers/rosetta.sif ls /rosetta/main/database/chemical/residue_type_sets/fa_standard/patches```
+```ls <env_path>/lib/python3.11/site-packages/pyrosetta/database/chemical/residue_type_sets/fa_standard/patches```
 
-:exclamation: Note that the protocol script is set up to use Singularity containers. If you compiled Rosetta, PyRosetta or MASTER without containers, you will need to edit the `$ROSETTA`, `$PYTHON` and `$MASTER` environmental variables accordingly.
-
-:exclamation: Note that the protocol script is set up to use Slurm job scheduler. Using an other type of scheduler needs editing of the `PatchMAN_protocol.sh` file and `.sh` files in the `bin/` directory. Unfortunately, we cannot help with optimizing the pipeline to another system.
-
+:exclamation: The protocol is provided both runnable locally (PatchMAN_protocol_dask.py) and via a SLURM scheduler (PatchMAN_protocol.py). Running on other HPC computers would require changes of the scripts. Unfortuantely, we cannot help with that.
 
 #### Test run
 A test run of PatchMAN can be performed on the 1ssh.pdb in the `test/` directory. Turning off receptor backbone minimization for testing purposes decreases runtime:
 
 ```
-PatchMAN_protocol.sh -m false -w test/ 1ssh.pdb EGPPPAMPARPT
+python3 PatchMAN_protocol.py test_pdbs/1OOT_A.pdb -w test/ EGPPPAMPARPT 
+to test mask mode, add: -s test_pdbs/1oot_mask.pdb
+to test mask mode, add: -f -s test_pdbs/1oot_mask.pdb
 ```
 
 ### Running parameters
 ```
--m minimize receptor backbone (default: false)
--w working directory (Default: current directory)
+Focus/mask/hotspot:
+-s mask/focus PDB file (type: pdb file, Default: None)
+-l mask/focus residue list, instead of PDB file
+-f focus mode: use the file specified as the focus (Default: False - mask mode)
+-o hotspot mode, with a few residues in the binding site (Default: False)
+
+# MASTER parameters
 -c master cutoff (Default: 1.5)
--n job name (Default: PatchMAN_JOB)
--v verbose mode, print information about the job
+
+# FPD related parameters
+-m minimize receptor backbone (default: false)
+-a native file, for benchmarking (type: pdb file, Default: None)
+-t number of structures to generate (Default: 1)
+-u cluster radius (Default: 2.0)
+
+-w working directory (Default: current directory)
+-p step to start from (Default: 1, 1: split to motifs, 2: prepack receptor, 3: run MASTER,
+                                4: extract templates,  5: FlexPepDock, 6: clustering and finalizing,
+                                example: 4-6)
+                                
+-v verbose mode, print more information about the job
 ```
 
 ---
 ### Citing PatchMAN
 
-**Matching protein surface structural patches for high-resolution blind peptide docking**  
-Alisa Khramushin, Ziv Ben-Aharon, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman  
-*Proceedings of the National Academy of Sciences 119.18 (2022): e2121153119.*
+**PatchMAN docking: Modeling peptide-protein interactions in the context of the receptor surface**  
+Alisa Khramushin, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman  
+*bioRxiv 2021.09.02.458699; doi:https://doi.org/10.1101/2021.09.02.458699*  
 
 Please also cite the following papers:
 

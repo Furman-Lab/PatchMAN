@@ -1,8 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=master
-#SBATCH --time=13:00:00
-#SBATCH --mem=1G
+#SBATCH --job-name=prepack_receptor
+#SBATCH --time=90:00:00
+#SBATCH --mem=1600m
 #SBATCH --get-user-env
 
-echo ${PYTHON} ${PROTOCOL_ROOT}/bin/prepack_receptor.py $1
-${PYTHON} ${PROTOCOL_ROOT}/bin/prepack_receptor.py $1
+python3 ${PROTOCOL_ROOT}/bin/prepack_receptor.py *.clean.pdb

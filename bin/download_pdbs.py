@@ -1,4 +1,4 @@
-#!python3
+#!/vol/ek/Home/alisa/python3.5/bin/python3
 
 from pyrosetta import *
 from pyrosetta.rosetta import *
