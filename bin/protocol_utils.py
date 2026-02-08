@@ -113,7 +113,7 @@ def submit_job(script, args=[], dependency=None, slurm_opts=None):
 
 
 def create_motif_list(rec_name, pdb_list_file):
-	motif_files = glob.glob(rf"???_{rec_name}.pdb")
+	motif_files = sorted(glob.glob(rf"???_{rec_name}.pdb"))
 	with open(pdb_list_file, "w") as f:
 		f.writelines("\n".join(motif_files))
 		# add a new line
