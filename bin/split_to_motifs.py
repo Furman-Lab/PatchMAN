@@ -147,7 +147,7 @@ def focus_run(check_list, namespace, hotspot=False, debug=False):
 				common_residues = set(motif_with_chains).intersection(set(check_list))
 
 				# in focus mode, we keep every patch that overlaps with at least 5 residues from the check_list
-				if len(common_residues) > 4 or (hotspot and len(common_residues) > 2):
+				if len(common_residues) > 4):
 					finalize_motif(motif, motif_with_chains, namespace, i)
 				else:
 					if debug:
