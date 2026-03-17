@@ -228,6 +228,8 @@ def parse_protocol_args():
 		args.fpd_args.append(f"-m")
 	if args.nstruct is not None:
 		args.fpd_args.append(f"-t {args.nstruct}")
+	if args.hotspot_mode or args.focus_mode:
+		args.fpd_args.append(f"-t 3")
 	if args.native_pdb:
 		args.fpd_args.append(f"-a {args.native_pdb}")
 	if args.force_rerun_fpd:
