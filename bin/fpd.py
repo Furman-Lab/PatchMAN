@@ -438,12 +438,14 @@ def set_nstruct(n_templates, max_nstruct_per_decoy, max_nstruct_total=20000, arg
 	if args and args.nstruct:
 		nstruct = args.nstruct
 	else:
-		if max_nstruct_per_decoy * n_templates <= max_nstruct_total:
-			nstruct = max_nstruct_per_decoy
-		elif n_templates > max_nstruct_total:
-			nstruct = 1
-		else:
-			nstruct = max_nstruct_total // n_templates  # rounds down to the closest integer
+		nstruct = 1
+	#else:
+	#	if max_nstruct_per_decoy * n_templates <= max_nstruct_total:
+	#		nstruct = max_nstruct_per_decoy
+	#	elif n_templates > max_nstruct_total:
+	#		nstruct = 1
+	#	else:
+	#		nstruct = max_nstruct_total // n_templates  # rounds down to the closest integer
 	
 	print(
 		f"Refinement will generate {nstruct} decoys per input structure for {n_templates} inputs, total {nstruct * n_templates} decoys")
