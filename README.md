@@ -1,4 +1,7 @@
 ## PatchMAN protocol for blind peptide-protein docking
+###We have a new version!
+###PatchMAN2  reduces runtime and enables selective sampling
+###Allowing users to exclude regions where docking is not desired or, conversely, focus sampling on specific areas of interest.
 
 <img align="left" width="500" height="144" src="https://raw.githubusercontent.com/Alisa-Kh/PatchMAN/master/PatchMAN_small.PNG">
 
