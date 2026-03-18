@@ -95,9 +95,9 @@ Focus/mask/hotspot:
 ---
 ### Citing PatchMAN
 
-**PatchMAN docking: Modeling peptide-protein interactions in the context of the receptor surface**  
-Alisa Khramushin, Tomer Tsaban, Julia Varga, Orly Avraham, Ora Schueler-Furman  
-*bioRxiv 2021.09.02.458699; doi:https://doi.org/10.1101/2021.09.02.458699*  
+**Matching protein surface structural patches for high-resolution blind peptide docking**  
+Alisa Khramushin, Tomer Tsaban, Julia K. Varga, Orly Avraham, Ora Schueler-Furman  
+*Proc Natl Acad Sci USA. 2022 May 3;119(18):e2121153119*  
 
 Please also cite the following papers:
 
