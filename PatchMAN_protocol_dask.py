@@ -4,6 +4,7 @@ from bin.dask_protocol_utils import *
 from dask.distributed import Client, LocalCluster, as_completed
 from dask import delayed
 import subprocess
+import sys
 import os
 
 def main():
@@ -33,7 +34,7 @@ def main():
 	pdb_list_file = "motif_list"
 	if 1 in args.steps_range:
 		print("Step 1: Splitting to motifs...")
-		results_split_to_motifs = subprocess.run(['python3', f"{os.environ['BIN_DIR']}/split_to_motifs.py", "-i", receptor,
+		results_split_to_motifs = subprocess.run([sys.executable, f"{os.environ['BIN_DIR']}/split_to_motifs.py", "-i", receptor,
 						*args.focus_mask_args.split()], check=True)
 		
 		check_subprocess_result(results_split_to_motifs, 1)
@@ -52,7 +53,7 @@ def main():
 
 		clean_pdbs = glob.glob("*.clean.pdb")
 		if clean_pdbs:
-			result_prepack = subprocess.run(['python3', f"{os.environ['BIN_DIR']}/prepack_receptor.py", clean_pdbs[0]],
+			result_prepack = subprocess.run([sys.executable, f"{os.environ['BIN_DIR']}/prepack_receptor.py", clean_pdbs[0]],
 									capture_output=True, text=True)
 			
 			check_subprocess_result(result_prepack, 2)
@@ -105,7 +106,7 @@ def main():
 		print(f"FPD called with arguments: {' '.join(args.fpd_args)}")
 		
 		# Run FlexPepDock Python script directly (using PROTOCOL_ROOT path like original)
-		fpd_cmd = ' '.join(['python3', f"{os.environ['PROTOCOL_ROOT']}/bin/fpd.py"] + args.fpd_args)
+		fpd_cmd = ' '.join([sys.executable, f"{os.environ['PROTOCOL_ROOT']}/bin/fpd.py"] + args.fpd_args)
 		
 		# Create the process
 		fpd_process = subprocess.Popen(fpd_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -132,7 +133,8 @@ def main():
 		os.makedirs("clustering", exist_ok=True)
 
 		# Run clustering Python script and redirect output to clog file
-		cluster_cmd = ['python3', f"{os.environ['PROTOCOL_ROOT']}/bin/cluster.py"]
+		cluster_cmd = [sys.executable, f"{os.environ['PROTOCOL_ROOT']}/bin/cluster.py",
+		               '-c', str(args.cpu)]
 
 		with open("clustering/clog", "w") as clog_file:
 			cluster_result = subprocess.run(cluster_cmd, stdout=clog_file, stderr=subprocess.STDOUT, text=True)
