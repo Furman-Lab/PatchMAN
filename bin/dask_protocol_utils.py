@@ -5,9 +5,11 @@ from datetime import datetime
 
 cluster = None  # Global variable to hold the Dask cluster instance
 
-def run_dask_tasks(cluster, task_func, task_args_list, task_name):
+def run_dask_tasks(cluster, task_func, task_args_list, task_name, plugin=None, collect_results=False):
 	"""Execute tasks using Dask cluster and monitor progress"""
 	client = Client(cluster.scheduler_address)
+	if plugin:
+		client.register_plugin(plugin)
 
 	print(f"Starting {task_name} with {len(task_args_list)} tasks")
 	print(f"Dask dashboard: {client.dashboard_link}")
@@ -21,11 +23,14 @@ def run_dask_tasks(cluster, task_func, task_args_list, task_name):
 	# Process results as they complete
 	completed_count = 0
 	failed_tasks = []
+	all_results = [] if collect_results else None
 
 	for future in as_completed(futures):
 		try:
 			result = future.result()
 			completed_count += 1
+			if collect_results:
+				all_results.append(result)
 
 			# Create individual log file for this task
 			task_id = result.get('task_id', 'unknown')
@@ -78,19 +83,23 @@ def run_dask_tasks(cluster, task_func, task_args_list, task_name):
 
 	if failed_tasks:
 		print(f"Warning: {len(failed_tasks)} tasks failed in {task_name}")
+		if collect_results:
+			return False, all_results
 		return False
 	else:
 		print(f"All {task_name} tasks completed successfully")
+		if collect_results:
+			return True, all_results
 		return True
 
-def setup_cluster(n_searches, cpu_count):
+def setup_cluster(n_searches, cpu_count, memory_limit='500MB'):
 	"""Get existing cluster or create new one if needed"""
 	global cluster
 	if cluster is None:
 		cluster = LocalCluster(
 			n_workers=min(cpu_count, n_searches),
 			threads_per_worker=1,
-			memory_limit='500MB',
+			memory_limit=memory_limit,
 			dashboard_address=':8787'
 		)
 		print(f"Created Dask cluster with {cluster.workers} workers")

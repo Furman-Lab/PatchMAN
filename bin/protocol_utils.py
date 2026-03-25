@@ -9,6 +9,11 @@ import configparser
 import socket
 import glob
 
+def get_available_cpus():
+	"""Get number of available CPUs, respecting SLURM cgroups."""
+	return len(os.sched_getaffinity(0))
+
+
 def load_config(config_file_path="config.ini"):
 	'''
 	Load the configuration file and set up environment variables
@@ -187,7 +192,7 @@ def parse_protocol_args():
 	
 	# get the number of cpu-s
 	if args.cpu is None:
-		args.cpu = len(os.sched_getaffinity(0))
+		args.cpu = get_available_cpus()
 	
 	# also validate working directory and create if it doesn't exist
 	try:

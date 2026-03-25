@@ -9,7 +9,7 @@ from pathlib import Path
 import pyrosetta
 from dask_jobqueue import SLURMCluster
 from pyrosetta import *
-from dask.distributed import Client, WorkerPlugin
+from dask.distributed import Client, LocalCluster, WorkerPlugin
 
 
 class PyRosettaFPDPlugin(WorkerPlugin):
@@ -30,14 +30,14 @@ class PyRosettaFPDPlugin(WorkerPlugin):
 		worker.fpd_min_rec_bb = self.min_rec_bb
 		worker.fpd_native_path = self.native_path
 		
-		# For SLURM: Initialize once per worker (the old way)
-		print(f"Initializing PyRosetta ONCE on SLURM worker {worker.id}")
+		# Initialize once per worker
+		print(f"Initializing PyRosetta ONCE on worker {worker.id}")
 		pyrosetta.init(self.init_options)
-		
+
 		# Create the FPD mover once
 		fpd_mover = self._create_fpd_mover()
 		worker.fpd_mover = fpd_mover
-		print(f"PyRosetta and FlexPepDock initialized on SLURM worker {worker.id}")
+		print(f"PyRosetta and FlexPepDock initialized on worker {worker.id}")
 		
 		sys.stdout.flush()
 	
@@ -333,6 +333,52 @@ def run_fpd_cluster_local(list_of_inputs, init_opts, min_rec_bb=False, output_pa
 		outfile.writelines(score_lines)
 
 
+def run_fpd_cluster_local_direct(list_of_inputs, init_opts, min_rec_bb=False, output_path='.',
+                                  nstruct=1, finished_decoys=None, native_path=None, cpu=None):
+	"""
+	Run FPD locally using LocalCluster + Client.map() + PyRosettaFPDPlugin.
+	Reuses the SLURM task functions (protocol_slurm, create_tasks_slurm,
+	write_score_file_from_silent) with a local Dask cluster instead of SLURMCluster.
+	This avoids the PyRosettaCluster billiard subprocess overhead and the pickle.dumps()
+	hang that can occur with dry_run=True.
+	"""
+	import psutil
+
+	cpu = cpu if cpu else len(psutil.Process().cpu_affinity())
+	print(f"Running FlexPepDock locally on {len(list_of_inputs)} inputs with {cpu} workers")
+
+	# Each worker handles 1 task at a time; parallelism is across workers, not threads
+	init_opts = init_opts + " -multithreading:total_threads 1" + " -out:level 300"
+
+	pyrosetta.distributed.init(init_opts)
+
+	# Create task list (reuse SLURM task creation with resume support)
+	task_args = create_tasks_slurm(list_of_inputs, nstruct, output_path, finished_decoys)
+
+	if not task_args:
+		print("No tasks to run.")
+		return
+
+	# LocalCluster: 1 process per CPU, 1 thread per process (PyRosetta is not thread-safe)
+	cluster = LocalCluster(n_workers=cpu, threads_per_worker=1, processes=True)
+	client = Client(cluster)
+	print(f"Dask dashboard: {client.dashboard_link}")
+
+	try:
+		# Init PyRosetta and create FPD mover once per worker
+		client.register_plugin(PyRosettaFPDPlugin(init_opts, min_rec_bb, native_path))
+
+		# Submit all tasks and wait for completion
+		futures = [client.submit(protocol_slurm, *args) for args in task_args]
+		client.gather(futures)
+
+		print("All tasks completed. Combining silent files and extracting scores...")
+		write_score_file_from_silent(output_path)
+	finally:
+		client.close()
+		cluster.close()
+
+
 def create_fpd_mover(min_rec_bb=False, native_path=None):
 	"""Helper method to create FPD mover"""
 	import pyrosetta.distributed.io as io
@@ -519,6 +565,8 @@ def main():
 						default=os.getcwd())
 	parser.add_argument("--use_local", action="store_true",
 						help="Use LocalCluster instead of SLURMCluster. Default: False")
+	parser.add_argument("--legacy_local", action="store_true",
+						help="With --use_local, use legacy PyRosettaCluster path instead of Client.map(). Default: False")
 	args = parser.parse_args()
 	
 	# Collect input files
@@ -533,8 +581,9 @@ def main():
 	# For init Rosetta
 	init_opts = create_init_opts(args)
 	
-	# Clean up existing output files before running FlexPepDockcd
-	if not args.use_local: # PyRosettaCluster writes directly into a silent file, so no need to clean up
+	# Clean up existing output files before running FlexPepDock
+	# Only the legacy PyRosettaCluster path writes directly into a silent file; skip cleanup for it
+	if not (args.use_local and args.legacy_local):
 		clean_before_run(args.force_rerun)
 	
 	# If we did not want to force rerunning and there are some decoys already finished, we need to list them
@@ -547,8 +596,12 @@ def main():
 	# Run FlexPepDock
 	print('Running FlexPepDock...')
 	if args.use_local:
-		run_fpd_cluster_local(input_files, init_opts, args.min_rec_bb, args.outdir, nstruct,
-							  finished_decoys, args.native, args.cpu)
+		if args.legacy_local:
+			run_fpd_cluster_local(input_files, init_opts, args.min_rec_bb, args.outdir, nstruct,
+								  finished_decoys, args.native, args.cpu)
+		else:
+			run_fpd_cluster_local_direct(input_files, init_opts, args.min_rec_bb, args.outdir, nstruct,
+										  finished_decoys, args.native, args.cpu)
 	else:
 		run_fpd_cluster_slurm(input_files, init_opts, args.min_rec_bb, args.outdir, nstruct,
 					finished_decoys, args.native)

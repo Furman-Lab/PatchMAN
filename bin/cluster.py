@@ -22,8 +22,12 @@ from pyrosetta.rosetta.core.scoring import superimpose_pose, gdtha
 from pyrosetta.rosetta.protocols.cluster import ClusterPhilStyle
 from pyrosetta.rosetta.std import map_core_id_AtomID_core_id_AtomID
 
+from protocol_utils import get_available_cpus
+
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
+
+INIT_OPTIONS = '-mute FlexPepDockingProtocol FlexPepDockingPoseMetrics protocols.flexPepDocking core.pack core.scoring basic.io.database'
 
 
 def create_fpd_scoring_mover(native_pose):
@@ -57,44 +61,110 @@ def create_fpd_scoring_mover(native_pose):
 
         return fpd_protocol
 
-def rescore_models(silent_file, scores_sorted, tags=None, output_file='rescore.sc'):
+def _init_rescore_worker(silent_file, top_scoring_tag, init_options):
+    """Initializer for multiprocessing.Pool workers: init PyRosetta and create scoring mover once."""
+    import pyrosetta
+    pyrosetta.init(init_options)
+    global _scoring_mover, _silent_file
+    native_pose = read_poses_from_silentfile(silent_file, tags=[top_scoring_tag])[0]
+    _scoring_mover = create_fpd_scoring_mover(native_pose)
+    _silent_file = silent_file
+
+
+def _rescore_task(tag):
+    """Score a single pose in a worker process."""
     from pyrosetta.rosetta.protocols.jd2 import get_string_real_pairs_from_current_job
-    # Remove old RMSD columns
-    rms_columns = [col for col in scores_sorted.columns if col.startswith('rms')]
-    scores_filtered = scores_sorted.drop(columns=rms_columns)
+
+    pose = read_poses_from_silentfile(_silent_file, tags=[tag])[0]
+    _scoring_mover.apply(pose)
+
+    extra_scores = dict(get_string_real_pairs_from_current_job())
+    extra_scores['description'] = tag
+
+    for score_type in ['score', 'fa_atr', 'fa_rep', 'fa_sol', 'fa_dun', 'hbond_sc']:
+        extra_scores[score_type] = pose.scores[score_type]
+
+    return {'task_id': tag, 'returncode': 0, 'scores': extra_scores}
+
+
+def rescore_models(silent_file, scores_sorted, tags=None, output_file='rescore.sc', num_cpus=None):
+    # Get all tags from score data (no PyRosetta needed)
+    all_tags = scores_sorted.description.tolist()
 
     # Prepare top scoring decoy
     top_scoring_tag = scores_sorted.head(1).description.iloc[0]
-    top_scoring_pose = read_poses_from_silentfile(silent_file, tags=[top_scoring_tag], sort_by_score='reweighted_sc')[0]
 
-    poses = read_poses_from_silentfile(silent_file)
-    fpd_scoring_mover = create_fpd_scoring_mover(top_scoring_pose)
+    # Determine number of CPUs
+    if num_cpus is None:
+        num_cpus = get_available_cpus()
+    num_cpus = min(num_cpus, len(all_tags))
 
-    #Rescore
-    scores_to_save = ['rmsALL', 'rmsALL_allIF', 'rmsALL_if', 'rmsBB', 'rmsBB_allIF', 'rmsBB_if', 
-                      'rmsSC_allIF', 'rmsPHIPSI', 'rmsPHIPSI', 'rmsPHIPSI_if', 'rmsCA', 'rmsCA_if']
     more_scores_to_save = ['score', 'fa_atr', 'fa_rep', 'fa_sol', 'fa_dun', 'hbond_sc']
-    scores = []
-    all_poses = []
-    for pose in poses:
-        tag = pyrosetta.rosetta.core.pose.tag_from_pose(pose)
-        
-        # before = pose.scores['rmsBB_if'] # debug
-        fpd_scoring_mover.apply(pose)
-        extra_scores = dict(get_string_real_pairs_from_current_job())
-        extra_scores['description'] = tag
-                
-        # we also need them in the poses we work with, otherwise the final results will contain the old values
-        if tag in tags:
-            for k, v in extra_scores.items():
-                if not k.startswith('best'):
-                    pose.scores[k] = v
-            all_poses.append(pose)
 
-        # we want to also provide these, but these are not from FPD
-        for score_type in more_scores_to_save:
-            extra_scores[score_type] = pose.scores[score_type]
-        scores.append(extra_scores)
+    if num_cpus > 1:
+        # Parallel rescoring with multiprocessing.Pool — avoids Dask nanny killing
+        # workers during long C++ FPD scoring calls that block heartbeats
+        import multiprocessing
+        print(f"Parallel rescoring with {num_cpus} workers for {len(all_tags)} poses")
+
+        ctx = multiprocessing.get_context('spawn')
+        pool = ctx.Pool(num_cpus, initializer=_init_rescore_worker,
+                        initargs=(silent_file, top_scoring_tag, INIT_OPTIONS))
+        results = pool.map(_rescore_task, all_tags)
+        pool.close()
+        pool.join()
+
+        # Build score dicts from results
+        score_lookup = {}
+        scores = []
+        for result in results:
+            score_dict = result['scores']
+            scores.append(score_dict)
+            score_lookup[score_dict['description']] = score_dict
+
+        # Now safe to init PyRosetta in the main process (pool workers are gone)
+        pyrosetta.init(INIT_OPTIONS)
+
+        # Read only the tags we need for clustering, patch their scores
+        all_poses = []
+        for tag in tags:
+            pose = read_poses_from_silentfile(silent_file, tags=[tag])[0]
+            if tag in score_lookup:
+                for k, v in score_lookup[tag].items():
+                    if not k.startswith('best'):
+                        try:
+                            pose.scores[k] = v
+                        except ValueError:
+                            pass  # skip reserved energy names (fa_atr etc.)
+            all_poses.append(pose)
+    else:
+        # Sequential fallback — no workers, safe to init in main process
+        pyrosetta.init(INIT_OPTIONS)
+        print(f"Sequential rescoring for {len(all_tags)} poses")
+        top_scoring_pose = read_poses_from_silentfile(silent_file, tags=[top_scoring_tag], sort_by_score='reweighted_sc')[0]
+        poses = read_poses_from_silentfile(silent_file)
+        fpd_scoring_mover = create_fpd_scoring_mover(top_scoring_pose)
+
+        scores = []
+        all_poses = []
+        for pose in poses:
+            tag = pyrosetta.rosetta.core.pose.tag_from_pose(pose)
+
+            fpd_scoring_mover.apply(pose)
+            extra_scores = dict(get_string_real_pairs_from_current_job())
+            extra_scores['description'] = tag
+
+            # we also need them in the poses we work with, otherwise the final results will contain the old values
+            if tag in tags:
+                for k, v in extra_scores.items():
+                    if not k.startswith('best'):
+                        pose.scores[k] = v
+                all_poses.append(pose)
+
+            # we want to also provide these, but these are not from FPD
+            for score_type in more_scores_to_save:
+                extra_scores[score_type] = pose.scores[score_type]
+            scores.append(extra_scores)
 
     # Save calculated RMSD-s
     rescore_df = pd.DataFrame(scores).sort_values(by='reweighted_sc', ascending=True)
@@ -559,14 +629,14 @@ def parse_args():
     parser.add_argument("-t", "--tags_to_remove", nargs="+", default=[], help="Tags to exclude from clustering.")
     parser.add_argument("-r", "--radius", type=float, default=2.0, help="RMSD threshold for clustering.")
     parser.add_argument("-x", "--topX", type=int, default=0.01, help="Ratio of decoys to take for clustering (0<x<=1) or exact number x>1")
+    parser.add_argument("-c", "--cpus", type=int, default=None,
+                        help="Number of CPUs for parallel rescoring. Default: all available.")
     parser.add_argument("--no-rescore", action="store_true", help="Do not rescore against top scoring structure.")
 
     return parser.parse_args()
 
 
 def main():
-    pyrosetta.init('-mute FlexPepDockingProtocol FlexPepDockingPoseMetrics protocols.flexPepDocking core.pack core.scoring basic.io.database')
-
     args = parse_args()
 
     if not os.path.isdir(args.work_dir):
@@ -591,9 +661,11 @@ def main():
     tags = filter_and_select_top_structures(scores_sorted, tags_to_remove=args.tags_to_remove, topX=args.topX).description.tolist()
 
     if not args.no_rescore:
-        scores_sorted, all_poses = rescore_models(args.silent_file, scores_sorted, tags, output_file='rescore.sc')
+        scores_sorted, all_poses = rescore_models(args.silent_file, scores_sorted, tags,
+                                                     output_file='rescore.sc', num_cpus=args.cpus)
         scores_sorted.to_csv('sorted.sc', sep='\t', index=False, header=False)
     else:
+        pyrosetta.init(INIT_OPTIONS)
         all_poses = read_poses_from_silentfile(args.silent_file, tags)
     actual_radius = calculate_actual_radius(all_poses[0], args.radius)
 
