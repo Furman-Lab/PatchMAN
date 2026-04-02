@@ -334,13 +334,13 @@ def extract_and_sort_score_file(score_file='score.sc', output_file="sorted.sc"):
     # drop those rows where description=='description'
     scores = scores[scores['description'] != 'description']
 
-    scores = scores[scores_types]
-
-	numeric_cols = ['reweighted_sc', 'I_sc', 'rmsBB', 'rmsBB_if']
-	scores[numeric_cols] = scores[numeric_cols].apply(pd.to_numeric, errors='coerce')
+    scores = scores[scores_types
 	
-	# drop rows that don't have a usable sort key
-	scores = scores.dropna(subset=['reweighted_sc'])
+	numeric_cols = ['reweighted_sc', 'I_sc', 'rmsBB', 'rmsBB_if']
+    scores[numeric_cols] = scores[numeric_cols].apply(pd.to_numeric, errors='coerce')
+	
+    # drop rows that don't have a usable sort key
+    scores = scores.dropna(subset=['reweighted_sc'])
 
     # Sort the DataFrame by the 'reweighted_sc' column and save it
     scores_sorted = scores.sort_values(by='reweighted_sc', ascending=True)
@@ -453,9 +453,9 @@ def process_clusters(clusters, scores=['I_sc', 'reweighted_sc', 'rmsBB_if']):
 
     pose_df = pd.DataFrame(pose_list, columns=["Decoy_ID", "Cluster_no", "Member_ID"]+scores)
 	
-	# existing columns: ["Decoy_ID", "Cluster_no", "Member_ID"] + scores
-	numeric_cols = ["Cluster_no", "Member_ID"] + scores
-	pose_df[numeric_cols] = pose_df[numeric_cols].apply(pd.to_numeric, errors="coerce")
+    # existing columns: ["Decoy_ID", "Cluster_no", "Member_ID"] + scores
+    numeric_cols = ["Cluster_no", "Member_ID"] + scores
+    pose_df[numeric_cols] = pose_df[numeric_cols].apply(pd.to_numeric, errors="coerce")
 
     # Output dataframe similarly to previous runs for backward compatibility
     only_cluster_centers_df = pose_df.query('Member_ID == 0')
