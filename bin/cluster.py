@@ -335,7 +335,12 @@ def extract_and_sort_score_file(score_file='score.sc', output_file="sorted.sc"):
     scores = scores[scores['description'] != 'description']
 
     scores = scores[scores_types]
-    scores = scores.apply(pd.to_numeric, errors='ignore')
+    
+    numeric_cols = ['reweighted_sc', 'I_sc', 'rmsBB', 'rmsBB_if']
+    scores[numeric_cols] = scores[numeric_cols].apply(pd.to_numeric, errors='coerce')
+    
+    # drop rows that don't have a usable sort key
+    scores = scores.dropna(subset=['reweighted_sc'])
 
     # Sort the DataFrame by the 'reweighted_sc' column and save it
     scores_sorted = scores.sort_values(by='reweighted_sc', ascending=True)
@@ -447,7 +452,10 @@ def process_clusters(clusters, scores=['I_sc', 'reweighted_sc', 'rmsBB_if']):
             pose_list.append(pose_data)
 
     pose_df = pd.DataFrame(pose_list, columns=["Decoy_ID", "Cluster_no", "Member_ID"]+scores)
-    pose_df = pose_df.apply(pd.to_numeric, errors='ignore')
+    
+    # existing columns: ["Decoy_ID", "Cluster_no", "Member_ID"] + scores
+    numeric_cols = ["Cluster_no", "Member_ID"] + scores
+    pose_df[numeric_cols] = pose_df[numeric_cols].apply(pd.to_numeric, errors="coerce")
 
     # Output dataframe similarly to previous runs for backward compatibility
     only_cluster_centers_df = pose_df.query('Member_ID == 0')
@@ -491,84 +499,84 @@ def clean_dir(dirs=[]):
 ###########################
 
 def get_elements_of_selection(sele):
-	myspace = {'res_numbers': []}
-	cmd.iterate(sele, 'res_numbers.append(resi)', space=myspace)  # iterate through model receptor interface
-	output = np.unique(myspace['res_numbers'])
-	
-	return (output)
+    myspace = {'res_numbers': []}
+    cmd.iterate(sele, 'res_numbers.append(resi)', space=myspace)  # iterate through model receptor interface
+    output = np.unique(myspace['res_numbers'])
+    
+    return (output)
 
 
 def find_shortest_chain(object_name):
-	chain_lengths = {}
-	
-	# Iterate over all chains in the object and count residues
-	chains = cmd.get_chains(object_name)
-	for chain in chains:
-		residues = get_elements_of_selection(f'chain {chain} and {object_name}')
-		chain_lengths[chain] = len(set(residues))  # Use a set to count unique residues
-	
-	# Find the shortest chain
-	shortest_chain = min(chain_lengths, key=chain_lengths.get)
-	
-	return chains[0], shortest_chain
+    chain_lengths = {}
+    
+    # Iterate over all chains in the object and count residues
+    chains = cmd.get_chains(object_name)
+    for chain in chains:
+        residues = get_elements_of_selection(f'chain {chain} and {object_name}')
+        chain_lengths[chain] = len(set(residues))  # Use a set to count unique residues
+    
+    # Find the shortest chain
+    shortest_chain = min(chain_lengths, key=chain_lengths.get)
+    
+    return chains[0], shortest_chain
 
 
 def create_figures():
-	pymol.pymol_argv = ['pymol', '-cq']
-	cmd.loadall('model_rank*pdb')
-	
-	# load also native if exists
-	native_pdbs = glob.glob('../*native*.pdb')
-	if len(native_pdbs) > 0:
-		native_pdb_file = native_pdbs[0]
-		cmd.load(native_pdb_file, 'native')
-		ch_rec_native, ch_pep_native = find_shortest_chain('native')
-	else:
-		native_pdb_file = None
-		
-	ch_rec_model, ch_pep_model = find_shortest_chain('model_rank_1')
-	
-	# Align first receptor in all models to native
-	target = 'native' if native_pdb_file else 'model_rank_1'
-	cmd.extra_fit(f"chain {ch_rec_model} and model*", target, "super")
-	
-	# First visualization: full complex
-	cmd.hide("everything")
+    pymol.pymol_argv = ['pymol', '-cq']
+    cmd.loadall('model_rank*pdb')
+    
+    # load also native if exists
+    native_pdbs = glob.glob('../*native*.pdb')
+    if len(native_pdbs) > 0:
+        native_pdb_file = native_pdbs[0]
+        cmd.load(native_pdb_file, 'native')
+        ch_rec_native, ch_pep_native = find_shortest_chain('native')
+    else:
+        native_pdb_file = None
+        
+    ch_rec_model, ch_pep_model = find_shortest_chain('model_rank_1')
+    
+    # Align first receptor in all models to native
+    target = 'native' if native_pdb_file else 'model_rank_1'
+    cmd.extra_fit(f"chain {ch_rec_model} and model*", target, "super")
+    
+    # First visualization: full complex
+    cmd.hide("everything")
 
-	cmd.show("cartoon", f"chain {ch_pep_model} and model*")
-	cmd.show("cartoon", f"not chain {ch_pep_model} and model*")
-	cmd.color("white", f"not chain {ch_pep_model} and model*")
-	
-	if native_pdb_file:
-		ch_rec_native, ch_pep_native = find_shortest_chain('native')
-		cmd.show("cartoon", f"chain {ch_pep_native} and native")
-		cmd.spectrum("count", "rainbow_cycle", f"chain {ch_pep_native}")
-		cmd.color("white", "native")
-	
-	cmd.bg_color("white")
-	cmd.set("antialias", 2)
-	cmd.set("ray_trace_mode", 1)
-	cmd.orient()
-	cmd.zoom()
-	cmd.ray(1024)
-	cmd.png("complex_view.png")
-	
-	# Subsequent visualizations for each model
-	models = ["model_rank_1", "model_rank_2", "model_rank_3", "model_rank_4", "model_rank_5"]
-	colors = ["cbag", "cbac", "cbay", "cbao", "cbap"]
-	
-	for model, color in zip(models, colors):
-		try:
-			cmd.hide("everything")
-			cmd.show("cartoon", model)
-			cmd.orient(f"chain {ch_pep_model}")
-			cmd.show("sticks", f"chain {ch_pep_model} and {model} and not (name O or name C or name N)")
-			cmd.hide("everything", f"chain {ch_pep_model} and {model} and hydrogen")
-			getattr(cmd.util, color)(f"chain {ch_pep_model} and {model}")
-			cmd.ray(1024)
-			cmd.png(f"{model}.png")
-		except:
-			print(f'{model} does not exists')
+    cmd.show("cartoon", f"chain {ch_pep_model} and model*")
+    cmd.show("cartoon", f"not chain {ch_pep_model} and model*")
+    cmd.color("white", f"not chain {ch_pep_model} and model*")
+    
+    if native_pdb_file:
+        ch_rec_native, ch_pep_native = find_shortest_chain('native')
+        cmd.show("cartoon", f"chain {ch_pep_native} and native")
+        cmd.spectrum("count", "rainbow_cycle", f"chain {ch_pep_native}")
+        cmd.color("white", "native")
+    
+    cmd.bg_color("white")
+    cmd.set("antialias", 2)
+    cmd.set("ray_trace_mode", 1)
+    cmd.orient()
+    cmd.zoom()
+    cmd.ray(1024)
+    cmd.png("complex_view.png")
+    
+    # Subsequent visualizations for each model
+    models = ["model_rank_1", "model_rank_2", "model_rank_3", "model_rank_4", "model_rank_5"]
+    colors = ["cbag", "cbac", "cbay", "cbao", "cbap"]
+    
+    for model, color in zip(models, colors):
+        try:
+            cmd.hide("everything")
+            cmd.show("cartoon", model)
+            cmd.orient(f"chain {ch_pep_model}")
+            cmd.show("sticks", f"chain {ch_pep_model} and {model} and not (name O or name C or name N)")
+            cmd.hide("everything", f"chain {ch_pep_model} and {model} and hydrogen")
+            getattr(cmd.util, color)(f"chain {ch_pep_model} and {model}")
+            cmd.ray(1024)
+            cmd.png(f"{model}.png")
+        except:
+            print(f'{model} does not exists')
 
 #    cmd.save('models.pse')
 
@@ -577,35 +585,35 @@ def create_figures():
 
 
 def landscape_by_score(scores, score_type, rmsd_type):
-	plt.style.use('seaborn-v0_8-whitegrid')
-	f, ax = plt.subplots(1, 1, figsize=(10, 8))
-	plt.scatter(scores[rmsd_type], scores[score_type], s=85, alpha=0.2)
-	plt.ylabel(score_type, fontsize=20)
-	plt.xlabel(rmsd_type, fontsize=20)
-	plt.yticks(size=15)
-	plt.xticks(size=15)
-	plt.title(f"{rmsd_type} vs {score_type}", fontsize=25)
-	ax.set_xlim(left=0)
-	legend = plt.legend(frameon=3, loc="upper right", edgecolor='inherit', fontsize='20',
-	                    title_fontsize='20')  # "upper left"
-	frame = legend.get_frame()
-	frame.set_color('white')
-	f.savefig(f"results/{rmsd_type}_VS_{score_type}_landscape.png")
+    plt.style.use('seaborn-v0_8-whitegrid')
+    f, ax = plt.subplots(1, 1, figsize=(10, 8))
+    plt.scatter(scores[rmsd_type], scores[score_type], s=85, alpha=0.2)
+    plt.ylabel(score_type, fontsize=20)
+    plt.xlabel(rmsd_type, fontsize=20)
+    plt.yticks(size=15)
+    plt.xticks(size=15)
+    plt.title(f"{rmsd_type} vs {score_type}", fontsize=25)
+    ax.set_xlim(left=0)
+    legend = plt.legend(frameon=3, loc="upper right", edgecolor='inherit', fontsize='20',
+                        title_fontsize='20')  # "upper left"
+    frame = legend.get_frame()
+    frame.set_color('white')
+    f.savefig(f"results/{rmsd_type}_VS_{score_type}_landscape.png")
 
 
 def save_score_file(scores_file, return_all_scores=True, score_type='reweighted_sc', rmsd_type='rmsBB_if'):
-	if return_all_scores:
-		out_columns = ['reweighted_sc', 'score', 'I_sc', 'pep_sc',
-		               'pep_sc_noref', 'fa_atr', 'fa_rep', 'fa_sol',
-		               'fa_dun', 'hbond_sc', 'rmsBB_if',
-		               'rmsALL_if', 'rmsBB', 'startRMSbb', 'description']
-	else:
-		out_columns = [score_type, rmsd_type, 'description']
-	
-	df = scores_file[out_columns]
-	df.to_csv("results/filtered_scores.tsv", sep="\t", index=False)
-	
-	return out_columns
+    if return_all_scores:
+        out_columns = ['reweighted_sc', 'score', 'I_sc', 'pep_sc',
+                       'pep_sc_noref', 'fa_atr', 'fa_rep', 'fa_sol',
+                       'fa_dun', 'hbond_sc', 'rmsBB_if',
+                       'rmsALL_if', 'rmsBB', 'startRMSbb', 'description']
+    else:
+        out_columns = [score_type, rmsd_type, 'description']
+    
+    df = scores_file[out_columns]
+    df.to_csv("results/filtered_scores.tsv", sep="\t", index=False)
+    
+    return out_columns
 
 
 def run_post_processing(scores, return_all_scores=True, score_type='reweighted_sc', rmsd_type='rmsBB_if'):
@@ -615,7 +623,7 @@ def run_post_processing(scores, return_all_scores=True, score_type='reweighted_s
     scores_90 = scores.sort_values(score_type, ascending=True).head(n_rows)  
     landscape_by_score(scores_90, score_type, rmsd_type)
     save_score_file(scores_90, return_all_scores, score_type, rmsd_type)  # save results in tsv file
-	
+    
     os.chdir('results')
     create_figures()
 
